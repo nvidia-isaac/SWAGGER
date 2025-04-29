@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+services:
+  swagger:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=0
+    image: swagger
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # No default command - specialized services will define their own
+
+  rest-api:
+    extends: swagger
+    environment:
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    entrypoint: >
+      /bin/sh -c "python3 scripts/rest_api.py
+      --host $${HOST}
+      --port $${PORT}
+      --log_level $${LOG_LEVEL}
+      $${EXTRA_ARGS:-}"
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://rest-api:${PORT:-8000}/v1/health"]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+      start_period: 1s

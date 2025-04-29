@@ -1,0 +1,21 @@
+# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+BasedOnStyle: Google
+ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: Inline
+
+# Google style doesn't specify a pointer and reference whitespace alignment: it allows both but
+# recommends consistency. We chose to enforce the style for pointers and references to be on the
+# left, that is to the type, with a whitespace after.
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+IncludeBlocks: Preserve
+SortIncludes: CaseInsensitive
+AlignAfterOpenBracket: AlwaysBreak
