@@ -61,10 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends \
-            git \
-            python3-pip \
-            python3-venv
+          apt-get install -y --no-install-recommends git python3-pip python3-venv
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
           
@@ -104,11 +101,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends \
-            python3-pip \
-            python3-venv \
-            libgl1-mesa-glx \
-            libglib2.0-0
+          apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .
           python3 -m pip install pytest pytest-xdist pytest-cov junitparser
@@ -116,11 +109,7 @@ jobs:
       - name: Run unit tests
         run: |
           mkdir -p test-results
-          python3 -m pytest \
-            --junitxml=test-results/unit-tests.xml \
-            --cov=. \
-            --cov-report=xml:test-results/coverage.xml \
-            --cov-report=term-missing
+          python3 -m pytest --junitxml=test-results/unit-tests.xml --cov=. --cov-report=xml:test-results/coverage.xml --cov-report=term-missing
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -163,11 +152,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends \
-            python3-pip \
-            python3-venv \
-            libgl1-mesa-glx \
-            libglib2.0-0
+          apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .
           python3 -m pip install pytest pytest-xdist
@@ -175,16 +160,8 @@ jobs:
       - name: Run E2E tests
         run: |
           mkdir -p test-results
-          python3 scripts/generate_graph.py \
-            --map-path maps/carter_warehouse_navigation.png \
-            --graph-eval.active \
-            --perf-eval.active
-          python3 scripts/evaluate_graph.py \
-            --map-path maps/carter_warehouse_navigation.png \
-            --output-dir results \
-            --resolution 0.05 \
-            --safety-distance 0.3 \
-            --occupancy-threshold 127
+          python3 scripts/generate_graph.py --map-path maps/carter_warehouse_navigation.png --graph-eval.active --perf-eval.active
+          python3 scripts/evaluate_graph.py --map-path maps/carter_warehouse_navigation.png --output-dir results --resolution 0.05 --safety-distance 0.3 --occupancy-threshold 127
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -231,10 +208,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends \
-            python3-full \
-            python3-venv \
-            ffmpeg
+          apt-get install -y --no-install-recommends python3-full python3-venv ffmpeg
           
       - name: Build and test Docker
         run: |
@@ -247,9 +221,7 @@ jobs:
           source venv/bin/activate
           pip install -e .
           docker ps
-          python scripts/test_api_client.py \
-            --map_path maps/carter_warehouse_navigation.png \
-            --host docker
+          python scripts/test_api_client.py --map_path maps/carter_warehouse_navigation.png --host docker
           
       - name: Cleanup
         if: always()
