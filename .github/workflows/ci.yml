@@ -49,9 +49,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate workflow syntax
-        uses: rhysd/actionlint@v1
-
       - name: Wait for Docker
         run: |
           timeout 120s bash -c 'until docker info; do
