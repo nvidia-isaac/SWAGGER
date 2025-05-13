@@ -27,13 +27,30 @@ env:
 jobs:
   pre-commit:
     runs-on: [self-hosted, gpu]
+    container:
+      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      options: --privileged
+    services:
+      - name: docker
+        image: nvidia/dind:cuda-12.6.0
+        options: --privileged
     steps:
       - uses: actions/checkout@v4
       
+      - name: Wait for Docker daemon
+        run: |
+          for i in $(seq 1 10); do
+            if docker info; then
+              break
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+            sleep 10
+          done
+      
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends git
+          apt-get update
+          apt-get install -y --no-install-recommends git python3-pip
           pip install pre-commit
           
       - name: Run pre-commit
@@ -42,13 +59,30 @@ jobs:
   unit-tests:
     needs: pre-commit
     runs-on: [self-hosted, gpu]
+    container:
+      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      options: --privileged
+    services:
+      - name: docker
+        image: nvidia/dind:cuda-12.6.0
+        options: --privileged
     steps:
       - uses: actions/checkout@v4
       
+      - name: Wait for Docker daemon
+        run: |
+          for i in $(seq 1 10); do
+            if docker info; then
+              break
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+            sleep 10
+          done
+      
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip libgl1-mesa-glx libglib2.0-0
+          apt-get update
+          apt-get install -y python3-pip libgl1-mesa-glx libglib2.0-0
           pip install --upgrade pip
           pip install -e .
           pip install pytest pytest-xdist junitparser
@@ -68,37 +102,38 @@ jobs:
   e2e-tests:
     needs: unit-tests
     runs-on: [self-hosted, gpu]
+    container:
+      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      options: --privileged
+    services:
+      - name: docker
+        image: nvidia/dind:cuda-12.6.0
+        options: --privileged
     steps:
       - uses: actions/checkout@v4
       
+      - name: Wait for Docker daemon
+        run: |
+          for i in $(seq 1 10); do
+            if docker info; then
+              break
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+            sleep 10
+          done
+      
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip libgl1-mesa-glx libglib2.0-0
+          apt-get update
+          apt-get install -y python3-pip libgl1-mesa-glx libglib2.0-0
           pip install --upgrade pip
           pip install -e .
-          pip install pytest pytest-xdist junitparser
+          pip install pytest pytest-xdist
           
       - name: Run E2E tests
         run: |
-          mkdir -p test-results
           python3 scripts/generate_graph.py --map-path maps/carter_warehouse_navigation.png --graph-eval.active --perf-eval.active
           python3 scripts/evaluate_graph.py --map-path maps/carter_warehouse_navigation.png --output-dir results --resolution 0.05 --safety-distance 0.3 --occupancy-threshold 127
-          # Convert test results to JUnit XML format
-          python3 -c "
-import junitparser
-import os
-import json
-
-suite = junitparser.TestSuite('E2E Tests')
-test = junitparser.TestCase('Graph Generation and Evaluation')
-test.result = junitparser.junitparser.TestResult()
-test.result.message = 'E2E test completed successfully'
-suite.add_testcase(test)
-
-with open('test-results/e2e-tests.xml', 'w') as f:
-    junitparser.JUnitXml().add_testsuite(suite).write(f)
-          "
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -116,7 +151,7 @@ with open('test-results/e2e-tests.xml', 'w') as f:
     needs: e2e-tests
     runs-on: [self-hosted, gpu]
     container:
-      image: nvidia/dind:cuda-12.6.0
+      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged
     services:
       - name: docker
@@ -125,11 +160,6 @@ with open('test-results/e2e-tests.xml', 'w') as f:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y python3-full ffmpeg
-          
       - name: Wait for Docker daemon
         run: |
           for i in $(seq 1 10); do
@@ -139,6 +169,11 @@ with open('test-results/e2e-tests.xml', 'w') as f:
             echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
             sleep 10
           done
+      
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3-full ffmpeg
           
       - name: Build and test Docker
         run: |
