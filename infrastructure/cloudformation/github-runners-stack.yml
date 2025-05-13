@@ -31,7 +31,8 @@ Parameters:
 
   GitHubRepoPath:
     Type: String
-    Description: Full GitHub repository path (e.g., 'microsoft/vscode' or 'octocat/Hello-World')
+    Description: Full GitHub repository path (e.g., 'microsoft/vscode' or 'octocat/Hello-World'). For organization runners, use the organization name.
+    AllowedPattern: ^[a-zA-Z0-9-]+/[a-zA-Z0-9-]+$|^[a-zA-Z0-9-]+$
 
   VpcCidr:
     Type: String
@@ -45,7 +46,7 @@ Parameters:
 
   GitHubToken:
     Type: String
-    Description: GitHub personal access token with 'repo' and 'workflow' scopes. If adding to an organization, also requires 'admin:org' scope.
+    Description: GitHub personal access token with 'repo' and 'workflow' scopes. For organization runners, requires 'admin:org' scope.
     NoEcho: true
 
   RunnerCount:
@@ -248,11 +249,14 @@ Resources:
               VolumeSize: 100
               VolumeType: gp3
               DeleteOnTermination: true
-          - DeviceName: /dev/sdf
+          - DeviceName: /dev/xvdf
             Ebs:
               VolumeSize: 1024
               VolumeType: gp3
               DeleteOnTermination: true
+              Encrypted: true
+              Iops: 3000
+              Throughput: 125
         TagSpecifications:
           - ResourceType: instance
             Tags:
@@ -269,6 +273,12 @@ Resources:
             #!/bin/bash
             set -e
             
+            # Wait for apt lock to be released
+            while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+              echo "Waiting for other package manager to finish..."
+              sleep 1
+            done
+            
             # Install Docker
             apt-get update
             apt-get install -y ca-certificates curl gnupg
@@ -276,13 +286,69 @@ Resources:
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
             chmod a+r /etc/apt/keyrings/docker.gpg
             echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+            # Wait for apt lock again before updating
+            while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+              echo "Waiting for other package manager to finish..."
+              sleep 1
+            done
+            
             apt-get update
             apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
             
-            # Format and mount EBS volume for Docker cache
-            mkfs -t ext4 /dev/sdf
+            # Debug information
+            echo "=== Debug Information ==="
+            lsblk
+            echo "=== Mount Points ==="
+            mount
+            echo "=== FSTAB ==="
+            cat /etc/fstab
+            
+            # Wait for EBS volume to be available and find the correct device
+            echo "Waiting for EBS volume to be attached..."
+            while true; do
+              # Check for NVMe devices
+              if [ -e /dev/nvme1n1 ]; then
+                EBS_DEVICE="/dev/nvme1n1"
+                break
+              elif [ -e /dev/nvme0n1 ]; then
+                EBS_DEVICE="/dev/nvme0n1"
+                break
+              fi
+              echo "Waiting for EBS volume..."
+              sleep 5
+            done
+            
+            echo "Found EBS volume at $EBS_DEVICE"
+            
+            # Wait for the volume to be ready
+            sleep 10
+            
+            # Check if the volume is already formatted
+            if ! blkid $EBS_DEVICE; then
+              echo "Formatting EBS volume..."
+              mkfs -t ext4 $EBS_DEVICE
+            fi
+            
+            # Create mount point and add to fstab
             mkdir -p /var/lib/docker-cache
-            mount /dev/sdf /var/lib/docker-cache
+            
+            # Remove any existing mount entry for this device
+            sed -i '/\/var\/lib\/docker-cache/d' /etc/fstab
+            
+            # Add new mount entry
+            echo "$EBS_DEVICE /var/lib/docker-cache ext4 defaults,nofail 0 2" >> /etc/fstab
+            
+            # Unmount if already mounted
+            umount /var/lib/docker-cache 2>/dev/null || true
+            
+            # Mount the volume
+            mount -a
+            
+            # Verify mount
+            echo "=== After Mount ==="
+            mount | grep docker-cache
+            df -h /var/lib/docker-cache
             
             # Configure Docker to use the mounted volume for cache
             mkdir -p /etc/docker
@@ -298,8 +364,17 @@ Resources:
             }
             EOF
             
+            # Stop Docker before moving data
+            systemctl stop docker
+            
+            # Move existing Docker data if it exists
+            if [ -d "/var/lib/docker" ] && [ "$(ls -A /var/lib/docker)" ]; then
+              echo "Moving existing Docker data..."
+              mv /var/lib/docker/* /var/lib/docker-cache/ 2>/dev/null || true
+            fi
+            
             # Restart Docker to apply new configuration
-            systemctl restart docker
+            systemctl start docker
             
             # Create Docker cache cleanup script
             cat > /usr/local/bin/cleanup-docker-cache.sh << 'EOF'
@@ -337,16 +412,57 @@ Resources:
             # Add cleanup script to crontab
             (crontab -l 2>/dev/null; echo "0 */4 * * * /usr/local/bin/cleanup-docker-cache.sh") | crontab -
             
-            # Install GitHub Actions runner
-            mkdir -p /opt/actions-runner
-            cd /opt/actions-runner
-            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v3.1.0/actions-runner-linux-x64-3.1.0.tar.gz
-            tar xzf ./actions-runner-linux-x64.tar.gz
-            ./bin/installdependencies.sh
+            # Wait for apt lock before installing jq
+            while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+              echo "Waiting for other package manager to finish..."
+              sleep 1
+            done
             
-            # Configure and start the runner
-            ./config.sh --url https://github.com/${GitHubRepoPath} --token ${GitHubToken} --labels self-hosted,gpu --unattended
-            ./run.sh
+            # Install jq for JSON parsing
+            apt-get install -y jq
+            
+            # Install GitHub Actions runner
+            mkdir -p /opt/github-runner
+            cd /opt/github-runner
+            curl -o actions-runner-linux-x64-2.323.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+            echo "0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64-2.323.0.tar.gz" | shasum -a 256 -c
+            tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
+            
+            # Create runner user
+            useradd -m -s /bin/bash github-runner
+            
+            # Set ownership of runner directory
+            chown -R github-runner:github-runner /opt/github-runner
+
+            # Create systemd service for GitHub runner
+            cat > /etc/systemd/system/github-runner.service << EOF
+            [Unit]
+            Description=GitHub Actions Runner
+            After=network.target docker.service
+            
+            [Service]
+            Type=simple
+            User=github-runner
+            WorkingDirectory=/opt/github-runner
+            ExecStart=/opt/github-runner/run.sh
+            Restart=always
+            RestartSec=10
+            
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            
+            # Configure the runner as non-root user using the registration token
+            su - github-runner -c "cd /opt/github-runner && ./config.sh --url https://github.com/${GitHubRepoPath} --token \$(curl -s -X POST \
+              -H \"Accept: application/vnd.github+json\" \
+              -H \"Authorization: Bearer ${GitHubToken}\" \
+              -H \"X-GitHub-Api-Version: 2022-11-28\" \
+              \"https://api.github.com/repos/${GitHubRepoPath}/actions/runners/registration-token\" | jq -r '.token') --labels self-hosted,gpu --unattended --ephemeral"
+            
+            # Enable and start the service
+            systemctl daemon-reload
+            systemctl enable github-runner
+            systemctl start github-runner
 
   # Auto Scaling Group for runners
   RunnerAutoScalingGroup:
