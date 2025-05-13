@@ -23,73 +23,104 @@ on:
 env:
   DOCKER_HOST: tcp://localhost:2375
   DOCKER_TLS_CERTDIR: ""
+  PYTHONPATH: ${{ github.workspace }}
+  CUDA_VISIBLE_DEVICES: all
 
 jobs:
   pre-commit:
+    name: Pre-commit Checks
     runs-on: self-hosted
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged
+      options: --privileged --gpus all
     services:
       - name: docker
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for pre-commit
       
       - name: Wait for Docker daemon
         run: |
           for i in $(seq 1 10); do
-            if docker info; then
+            if docker info >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
               break
             fi
             echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
             sleep 10
           done
+          if [ $i -eq 10 ]; then
+            echo "Docker daemon failed to start"
+            exit 1
+          fi
       
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git python3-pip
-          pip install pre-commit
+          apt-get install -y --no-install-recommends \
+            git \
+            python3-pip \
+            python3-venv
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pre-commit
           
       - name: Run pre-commit
         run: pre-commit run --all-files
 
   unit-tests:
+    name: Unit Tests
     needs: pre-commit
     runs-on: self-hosted
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged
+      options: --privileged --gpus all
     services:
       - name: docker
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Wait for Docker daemon
         run: |
           for i in $(seq 1 10); do
-            if docker info; then
+            if docker info >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
               break
             fi
             echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
             sleep 10
           done
+          if [ $i -eq 10 ]; then
+            echo "Docker daemon failed to start"
+            exit 1
+          fi
       
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y python3-pip libgl1-mesa-glx libglib2.0-0
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-xdist junitparser
+          apt-get install -y --no-install-recommends \
+            python3-pip \
+            python3-venv \
+            libgl1-mesa-glx \
+            libglib2.0-0
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .
+          python3 -m pip install pytest pytest-xdist pytest-cov junitparser
           
       - name: Run unit tests
         run: |
-          python3 -m pytest --junitxml=test-results/unit-tests.xml --cov=. --cov-report=xml:test-results/coverage.xml
+          mkdir -p test-results
+          python3 -m pytest \
+            --junitxml=test-results/unit-tests.xml \
+            --cov=. \
+            --cov-report=xml:test-results/coverage.xml \
+            --cov-report=term-missing
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -100,40 +131,60 @@ jobs:
           retention-days: 7
 
   e2e-tests:
+    name: End-to-End Tests
     needs: unit-tests
     runs-on: self-hosted
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged
+      options: --privileged --gpus all
     services:
       - name: docker
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Wait for Docker daemon
         run: |
           for i in $(seq 1 10); do
-            if docker info; then
+            if docker info >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
               break
             fi
             echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
             sleep 10
           done
+          if [ $i -eq 10 ]; then
+            echo "Docker daemon failed to start"
+            exit 1
+          fi
       
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y python3-pip libgl1-mesa-glx libglib2.0-0
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-xdist
+          apt-get install -y --no-install-recommends \
+            python3-pip \
+            python3-venv \
+            libgl1-mesa-glx \
+            libglib2.0-0
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .
+          python3 -m pip install pytest pytest-xdist
           
       - name: Run E2E tests
         run: |
-          python3 scripts/generate_graph.py --map-path maps/carter_warehouse_navigation.png --graph-eval.active --perf-eval.active
-          python3 scripts/evaluate_graph.py --map-path maps/carter_warehouse_navigation.png --output-dir results --resolution 0.05 --safety-distance 0.3 --occupancy-threshold 127
+          mkdir -p test-results
+          python3 scripts/generate_graph.py \
+            --map-path maps/carter_warehouse_navigation.png \
+            --graph-eval.active \
+            --perf-eval.active
+          python3 scripts/evaluate_graph.py \
+            --map-path maps/carter_warehouse_navigation.png \
+            --output-dir results \
+            --resolution 0.05 \
+            --safety-distance 0.3 \
+            --occupancy-threshold 127
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -148,45 +199,57 @@ jobs:
         run: rm -rf results graphs test-results
 
   docker-build:
+    name: Docker Build and Test
     needs: e2e-tests
     runs-on: self-hosted
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged
+      options: --privileged --gpus all
     services:
       - name: docker
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Wait for Docker daemon
         run: |
           for i in $(seq 1 10); do
-            if docker info; then
+            if docker info >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
               break
             fi
             echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
             sleep 10
           done
+          if [ $i -eq 10 ]; then
+            echo "Docker daemon failed to start"
+            exit 1
+          fi
       
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y python3-full ffmpeg
+          apt-get install -y --no-install-recommends \
+            python3-full \
+            python3-venv \
+            ffmpeg
           
       - name: Build and test Docker
         run: |
           cd docker
           docker compose build --no-cache
-          docker compose up rest-api &
+          docker compose up -d rest-api
           sleep 10
           cd ../
           python3 -m venv venv
           source venv/bin/activate
           pip install -e .
           docker ps
-          python scripts/test_api_client.py --map_path maps/carter_warehouse_navigation.png --host docker
+          python scripts/test_api_client.py \
+            --map_path maps/carter_warehouse_navigation.png \
+            --host docker
           
       - name: Cleanup
         if: always()
