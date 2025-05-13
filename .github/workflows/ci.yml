@@ -16,20 +16,21 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 env:
-  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
   PYTHONPATH: ${{ github.workspace }}
-  CUDA_VISIBLE_DEVICES: all
 
 jobs:
   pre-commit:
     name: Pre-commit Checks
     runs-on: self-hosted
+    env:
+      CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
@@ -37,44 +38,51 @@ jobs:
       - name: docker
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
+        with:
+          healthcheck: |
+            until docker info; do
+              sleep 1
+            done
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Wait for Docker daemon
-        shell: bash
+
+      - name: Validate workflow syntax
+        uses: rhysd/actionlint@v1
+
+      - name: Wait for Docker
         run: |
-          for i in $(seq 1 10); do
-            if docker info >/dev/null 2>&1; then
-              echo "Docker daemon is ready"
-              break
-            fi
-            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+          timeout 120s bash -c 'until docker info; do
             sleep 10
-          done
-          if [ $i -eq 10 ]; then
-            echo "Docker daemon failed to start"
-            exit 1
-          fi
-      
+          done'
+
+      - name: Cache Python packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: precommit-${{ hashFiles('.pre-commit-config.yaml') }}
+
       - name: Install dependencies
-        shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git python3-pip python3-venv
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            --no-install-recommends \
+            git python3-pip python3-venv
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
-          
+
       - name: Run pre-commit
-        shell: bash
         run: pre-commit run --all-files
+    timeout-minutes: 60
 
   unit-tests:
     name: Unit Tests
     needs: pre-commit
     runs-on: self-hosted
+    env:
+      CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
@@ -83,43 +91,45 @@ jobs:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Wait for Docker daemon
-        shell: bash
+      - uses: actions/checkout@v4
+
+      - name: Wait for Docker
         run: |
-          for i in $(seq 1 10); do
-            if docker info >/dev/null 2>&1; then
-              echo "Docker daemon is ready"
-              break
-            fi
-            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+          timeout 120s bash -c 'until docker info; do
             sleep 10
-          done
-          if [ $i -eq 10 ]; then
-            echo "Docker daemon failed to start"
-            exit 1
-          fi
-      
+          done'
+
+      - name: Cache Python packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            venv/
+          key: unit-tests-${{ hashFiles('**/requirements.txt') }}
+
       - name: Install dependencies
-        shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            --no-install-recommends \
+            python3-pip python3-venv \
+            libgl1-mesa-glx libglib2.0-0
           python3 -m pip install --upgrade pip
-          python3 -m pip install -e .
-          python3 -m pip install pytest pytest-xdist pytest-cov junitparser
-          
+          python3 -m pip install -e .[test]
+
       - name: Run unit tests
-        shell: bash
         run: |
           mkdir -p test-results
-          python3 -m pytest --junitxml=test-results/unit-tests.xml --cov=. --cov-report=xml:test-results/coverage.xml --cov-report=term-missing
-          
+          pytest \
+            --junitxml=test-results/unit-tests.xml \
+            --cov=. \
+            --cov-report=xml:test-results/coverage.xml \
+            --cov-report=term-missing \
+            tests/unit
+
       - name: Upload test results
-        uses: actions/upload-artifact@v4
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
           path: test-results/
@@ -129,6 +139,8 @@ jobs:
     name: End-to-End Tests
     needs: unit-tests
     runs-on: self-hosted
+    env:
+      CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
@@ -137,58 +149,59 @@ jobs:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Wait for Docker daemon
-        shell: bash
+      - uses: actions/checkout@v4
+
+      - name: Wait for Docker
         run: |
-          for i in $(seq 1 10); do
-            if docker info >/dev/null 2>&1; then
-              echo "Docker daemon is ready"
-              break
-            fi
-            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+          timeout 120s bash -c 'until docker info; do
             sleep 10
-          done
-          if [ $i -eq 10 ]; then
-            echo "Docker daemon failed to start"
-            exit 1
-          fi
-      
+          done'
+
       - name: Install dependencies
-        shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            --no-install-recommends \
+            python3-pip python3-venv \
+            libgl1-mesa-glx libglib2.0-0
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .
-          python3 -m pip install pytest pytest-xdist
-          
+
       - name: Run E2E tests
-        shell: bash
         run: |
           mkdir -p test-results
-          python3 scripts/generate_graph.py --map-path maps/carter_warehouse_navigation.png --graph-eval.active --perf-eval.active
-          python3 scripts/evaluate_graph.py --map-path maps/carter_warehouse_navigation.png --output-dir results --resolution 0.05 --safety-distance 0.3 --occupancy-threshold 127
-          
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
+          python3 scripts/generate_graph.py \
+            --map-path maps/carter_warehouse_navigation.png \
+            --graph-eval.active \
+            --perf-eval.active
+          python3 scripts/evaluate_graph.py \
+            --map-path maps/carter_warehouse_navigation.png \
+            --output-dir results \
+            --resolution 0.05 \
+            --safety-distance 0.3 \
+            --occupancy-threshold 127
+
+      - name: Upload artifacts
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: e2e-test-results
-          path: test-results/
+          name: e2e-results
+          path: |
+            test-results/
+            results/
+            graphs/
           retention-days: 7
-          
+
       - name: Cleanup
         if: always()
-        shell: bash
         run: rm -rf results graphs test-results
 
   docker-build:
     name: Docker Build and Test
     needs: e2e-tests
     runs-on: self-hosted
+    env:
+      CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
@@ -197,48 +210,29 @@ jobs:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Wait for Docker daemon
-        shell: bash
+      - uses: actions/checkout@v4
+
+      - name: Wait for Docker
         run: |
-          for i in $(seq 1 10); do
-            if docker info >/dev/null 2>&1; then
-              echo "Docker daemon is ready"
-              break
-            fi
-            echo "Docker daemon not ready yet, waiting 10s (attempt $i/10)..."
+          timeout 120s bash -c 'until docker info; do
             sleep 10
-          done
-          if [ $i -eq 10 ]; then
-            echo "Docker daemon failed to start"
-            exit 1
-          fi
-      
-      - name: Install dependencies
-        shell: bash
+          done'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build and test
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends python3-full python3-venv ffmpeg
-          
-      - name: Build and test Docker
-        shell: bash
-        run: |
-          cd docker
+          cd docker || { echo "Missing docker directory"; exit 1; }
           docker compose build --no-cache
           docker compose up -d rest-api
-          sleep 10
-          cd ../
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install -e .
-          docker ps
-          python scripts/test_api_client.py --map_path maps/carter_warehouse_navigation.png --host docker
-          
+          sleep 15  # Wait for service initialization
+          docker ps -a
+          pytest ../tests/integration/test_api.py -v
+
       - name: Cleanup
         if: always()
-        shell: bash
         run: |
-          cd docker
-          docker compose down 
+          cd docker && docker compose down -v
