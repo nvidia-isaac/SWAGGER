@@ -35,14 +35,13 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
     services:
-      - name: docker
+      docker:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
-        with:
-          healthcheck: |
-            until docker info; do
-              sleep 1
-            done
+        ports:
+          - 2375:2375
+        env:
+          DOCKER_TLS_CERTDIR: ""
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,7 +49,19 @@ jobs:
           fetch-depth: 0
 
       - name: Wait for Docker
-        run: timeout 120s bash -c 'until docker info; do sleep 10; done'
+        run: |
+          i=1
+          while [ $i -le 12 ]; do
+            if docker ps >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
+              exit 0
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/12)..."
+            sleep 10
+            i=$((i + 1))
+          done
+          echo "Docker daemon failed to start"
+          exit 1
 
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -60,10 +71,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -e
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            --no-install-recommends \
-            git python3-pip python3-venv
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip python3-venv
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
 
@@ -81,14 +91,26 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
     services:
-      - name: docker
+      docker:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
       - uses: actions/checkout@v4
 
       - name: Wait for Docker
-        run: timeout 120s bash -c 'until docker info; do sleep 10; done'
+        run: |
+          i=1
+          while [ $i -le 12 ]; do
+            if docker ps >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
+              exit 0
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/12)..."
+            sleep 10
+            i=$((i + 1))
+          done
+          echo "Docker daemon failed to start"
+          exit 1
 
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -100,13 +122,12 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -e
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            --no-install-recommends \
-            python3-pip python3-venv \
-            libgl1-mesa-glx libglib2.0-0
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
           python3 -m pip install --upgrade pip
-          python3 -m pip install -e .[test]
+          python3 -m pip install -e .
+          python3 -m pip install pytest pytest-xdist pytest-cov junitparser
 
       - name: Run unit tests
         run: |
@@ -136,22 +157,32 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
     services:
-      - name: docker
+      docker:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
     steps:
       - uses: actions/checkout@v4
 
       - name: Wait for Docker
-        run: timeout 120s bash -c 'until docker info; do sleep 10; done'
+        run: |
+          i=1
+          while [ $i -le 12 ]; do
+            if docker ps >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
+              exit 0
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/12)..."
+            sleep 10
+            i=$((i + 1))
+          done
+          echo "Docker daemon failed to start"
+          exit 1
 
       - name: Install dependencies
         run: |
+          set -e
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            --no-install-recommends \
-            python3-pip python3-venv \
-            libgl1-mesa-glx libglib2.0-0
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .
 
@@ -194,14 +225,30 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all
     services:
-      - name: docker
+      docker:
         image: nvidia/dind:cuda-12.6.0
         options: --privileged
+        ports:
+          - 2375:2375
+        env:
+          DOCKER_TLS_CERTDIR: ""
     steps:
       - uses: actions/checkout@v4
 
       - name: Wait for Docker
-        run: timeout 120s bash -c 'until docker info; do sleep 10; done'
+        run: |
+          i=1
+          while [ $i -le 12 ]; do
+            if docker ps >/dev/null 2>&1; then
+              echo "Docker daemon is ready"
+              exit 0
+            fi
+            echo "Docker daemon not ready yet, waiting 10s (attempt $i/12)..."
+            sleep 10
+            i=$((i + 1))
+          done
+          echo "Docker daemon failed to start"
+          exit 1
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -210,6 +257,7 @@ jobs:
 
       - name: Build and test
         run: |
+          set -e
           cd docker || { echo "Missing docker directory"; exit 1; }
           docker compose build --no-cache
           docker compose up -d rest-api
