@@ -37,11 +37,10 @@ jobs:
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
-        options: --privileged
+        options: --privileged --network=host
         ports:
           - 2375:2375
-        env:
-          DOCKER_TLS_CERTDIR: ""
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -93,7 +92,10 @@ jobs:
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
-        options: --privileged
+        options: --privileged --network=host
+        ports:
+          - 2375:2375
+
     steps:
       - uses: actions/checkout@v4
 
@@ -159,7 +161,10 @@ jobs:
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
-        options: --privileged
+        options: --privileged --network=host
+        ports:
+          - 2375:2375
+
     steps:
       - uses: actions/checkout@v4
 
@@ -227,11 +232,10 @@ jobs:
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
-        options: --privileged
+        options: --privileged --network=host
         ports:
           - 2375:2375
-        env:
-          DOCKER_TLS_CERTDIR: ""
+
     steps:
       - uses: actions/checkout@v4
 
