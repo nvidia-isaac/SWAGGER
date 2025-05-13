@@ -1,0 +1,397 @@
+# Copyright 2025 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for CI/CD infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - staging
+    Description: Environment name for resource naming
+
+  ProjectName:
+    Type: String
+    Default: projectName
+    Description: Name of the project (used in resource naming)
+
+  GitHubRepoPath:
+    Type: String
+    Description: Full GitHub repository path (e.g., 'microsoft/vscode' or 'octocat/Hello-World')
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR block for the public subnet
+
+  GitHubToken:
+    Type: String
+    Description: GitHub personal access token with 'repo' and 'workflow' scopes. If adding to an organization, also requires 'admin:org' scope.
+    NoEcho: true
+
+  RunnerCount:
+    Type: Number
+    Description: Number of GitHub Actions runners to create
+    Default: 1
+    MinValue: 1
+    MaxValue: 10
+
+  InstanceType:
+    Type: String
+    Description: EC2 instance type for runners
+    Default: g4dn.xlarge
+    AllowedValues:
+      - g4dn.xlarge
+      - g4dn.2xlarge
+      - g4dn.4xlarge
+      - g5.xlargexr  bv
+      - g5.2xlarge
+      - g5.4xlarge
+
+  LogRetentionDays:
+    Type: Number
+    Description: Number of days to retain logs
+    Default: 90
+    MinValue: 1
+    MaxValue: 3653
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, 'production']
+
+Resources:
+  # VPC Resources
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-${ProjectName}-vpc
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-${ProjectName}-igw
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-${ProjectName}-public-subnet
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-${ProjectName}-rt
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  Route:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  # Security Group
+  BuildSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Environment}-${ProjectName}-build-sg
+      GroupDescription: Security group for build instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS access
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-${ProjectName}-build-sg
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # IAM Role for EC2 instances
+  RunnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Environment}-${ProjectName}-runner-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  RunnerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref RunnerRole
+      InstanceProfileName: !Sub ${Environment}-${ProjectName}-runner-profile
+
+  # Launch Template for runners
+  RunnerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${Environment}-${ProjectName}-runner-template
+      LaunchTemplateData:
+        ImageId: ami-0eabc4ddf08279fc3  # Ubuntu 22.04 LTS
+        InstanceType: !Ref InstanceType
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            SubnetId: !Ref PublicSubnet
+            Groups:
+              - !Ref BuildSecurityGroup
+        IamInstanceProfile:
+          Name: !Ref RunnerInstanceProfile
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+          - DeviceName: /dev/sdf
+            Ebs:
+              VolumeSize: 1024
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${Environment}-${ProjectName}-runner
+              - Key: Environment
+                Value: !Ref Environment
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: ManagedBy
+                Value: CloudFormation
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            
+            # Install Docker
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            
+            # Format and mount EBS volume for Docker cache
+            mkfs -t ext4 /dev/sdf
+            mkdir -p /var/lib/docker-cache
+            mount /dev/sdf /var/lib/docker-cache
+            
+            # Configure Docker to use the mounted volume for cache
+            mkdir -p /etc/docker
+            cat > /etc/docker/daemon.json << EOF
+            {
+              "data-root": "/var/lib/docker-cache",
+              "storage-driver": "overlay2",
+              "log-driver": "json-file",
+              "log-opts": {
+                "max-size": "100m",
+                "max-file": "3"
+              }
+            }
+            EOF
+            
+            # Restart Docker to apply new configuration
+            systemctl restart docker
+            
+            # Create Docker cache cleanup script
+            cat > /usr/local/bin/cleanup-docker-cache.sh << 'EOF'
+            #!/bin/bash
+            
+            # Set threshold (in percentage) for cleanup
+            THRESHOLD=80
+            
+            # Get current disk usage
+            USAGE=$(df -h /var/lib/docker-cache | awk 'NR==2 {print $5}' | sed 's/%//')
+            
+            if [ "$USAGE" -gt "$THRESHOLD" ]; then
+              echo "Docker cache usage is at $USAGE%, cleaning up..."
+              
+              # Remove unused containers
+              docker container prune -f
+              
+              # Remove unused images
+              docker image prune -a -f
+              
+              # Remove unused volumes
+              docker volume prune -f
+              
+              # Remove build cache
+              docker builder prune -f
+              
+              echo "Cleanup completed"
+            else
+              echo "Docker cache usage is at $USAGE%, no cleanup needed"
+            fi
+            EOF
+            
+            chmod +x /usr/local/bin/cleanup-docker-cache.sh
+            
+            # Add cleanup script to crontab
+            (crontab -l 2>/dev/null; echo "0 */4 * * * /usr/local/bin/cleanup-docker-cache.sh") | crontab -
+            
+            # Install GitHub Actions runner
+            mkdir -p /opt/actions-runner
+            cd /opt/actions-runner
+            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v3.1.0/actions-runner-linux-x64-3.1.0.tar.gz
+            tar xzf ./actions-runner-linux-x64.tar.gz
+            ./bin/installdependencies.sh
+            
+            # Configure and start the runner
+            ./config.sh --url https://github.com/${GitHubRepoPath} --token ${GitHubToken} --labels self-hosted,gpu --unattended
+            ./run.sh
+
+  # Auto Scaling Group for runners
+  RunnerAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${Environment}-${ProjectName}-runners
+      LaunchTemplate:
+        LaunchTemplateId: !Ref RunnerLaunchTemplate
+        Version: !GetAtt RunnerLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref RunnerCount
+      MaxSize: !Ref RunnerCount
+      DesiredCapacity: !Ref RunnerCount
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-${ProjectName}-runner
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true
+        - Key: ManagedBy
+          Value: CloudFormation
+          PropagateAtLaunch: true
+
+Outputs:
+  VpcId:
+    Description: ID of the VPC
+    Value: !Ref VPC
+
+  PublicSubnetId:
+    Description: ID of the public subnet
+    Value: !Ref PublicSubnet
+
+  SecurityGroupId:
+    Description: ID of the build security group
+    Value: !Ref BuildSecurityGroup
+
+  RunnerRoleArn:
+    Description: ARN of the runner IAM role
+    Value: !GetAtt RunnerRole.Arn
+
+  RunnerAutoScalingGroupName:
+    Description: Name of the runner Auto Scaling Group
+    Value: !Ref RunnerAutoScalingGroup 
