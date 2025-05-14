@@ -36,7 +36,7 @@ jobs:
       options: --privileged --gpus all --group-add 998
     services:
       docker:
-        image: nvidia/dind:cuda-12.6.0
+        image: docker:26-dind
         options: --privileged --network=host
         ports:
           - 2375:2375
@@ -91,7 +91,7 @@ jobs:
       options: --privileged --gpus all --group-add 998
     services:
       docker:
-        image: nvidia/dind:cuda-12.6.0
+        image: docker:26-dind
         options: --privileged --network=host
         ports:
           - 2375:2375
@@ -160,7 +160,7 @@ jobs:
       options: --privileged --gpus all --group-add 998
     services:
       docker:
-        image: nvidia/dind:cuda-12.6.0
+        image: docker:26-dind
         options: --privileged --network=host
         ports:
           - 2375:2375
@@ -231,7 +231,7 @@ jobs:
       options: --privileged --gpus all --group-add 998
     services:
       docker:
-        image: nvidia/dind:cuda-12.6.0
+        image: docker:26-dind
         options: --privileged --network=host
         ports:
           - 2375:2375

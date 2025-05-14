@@ -428,8 +428,9 @@ Resources:
             echo "0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64-2.323.0.tar.gz" | shasum -a 256 -c
             tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
             
-            # Create runner user
+            # Create runner user and add to docker group
             useradd -m -s /bin/bash github-runner
+            usermod -aG docker github-runner
             
             # Set ownership of runner directory
             chown -R github-runner:github-runner /opt/github-runner
@@ -445,23 +446,28 @@ Resources:
             Type=simple
             User=github-runner
             WorkingDirectory=/opt/github-runner
-            ExecStartPre=/bin/bash -c 'if [ ! -f /opt/github-runner/.runner ]; then \
+            ExecStartPre=/bin/bash -c 'if [ ! -f /opt/github-runner/.runner ] || [ ! -f /opt/github-runner/.credentials ]; then \
+              rm -rf /opt/github-runner/.runner /opt/github-runner/.credentials; \
               ./config.sh --url https://github.com/${GitHubRepoPath} --token \$(curl -s -X POST \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer ${GitHubToken}" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/${GitHubRepoPath}/actions/runners/registration-token" | jq -r ".token") \
-              --labels self-hosted,gpu --unattended --ephemeral; fi'
+              --labels self-hosted,gpu --unattended --ephemeral --replace || exit 1; fi'
             ExecStart=/opt/github-runner/run.sh
+            ExecStopPost=/bin/bash -c 'rm -rf /opt/github-runner/.runner /opt/github-runner/.credentials'
             Restart=always
             RestartSec=10
-            StartLimitBurst=5
+            StartLimitBurst=10
             TimeoutStartSec=300
             TimeoutStopSec=300
+            KillMode=process
+            KillSignal=SIGTERM
             Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
             Environment="DOCKER_HOST=unix:///var/run/docker.sock"
             Environment="ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/runner-hook.sh"
             Environment="ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/bin/runner-hook.sh"
+            Environment="RUNNER_ALLOW_RUNASROOT=0"
             
             [Install]
             WantedBy=multi-user.target
@@ -472,88 +478,160 @@ Resources:
             #!/bin/bash
             set -e
 
-            # Log the event
-            echo "$(date): Runner hook called with event: $1" >> /var/log/github-runner.log
+            # Log the event with timestamp and more details
+            log() {
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/github-runner.log
+            }
+
+            log "Runner hook called with event: $1"
+            log "Current Docker status: $(systemctl status docker | grep Active)"
 
             case "$1" in
               "job_started")
-                # Clean up any stale Docker resources
-                docker system prune -f
-                # Reset Docker daemon if needed
+                # Verify Docker is running and healthy
                 if ! docker info >/dev/null 2>&1; then
+                  log "Docker appears to be unhealthy, attempting restart"
                   systemctl restart docker
                   sleep 10
+                  if ! docker info >/dev/null 2>&1; then
+                    log "Docker failed to recover after restart"
+                    exit 1
+                  fi
+                  log "Docker successfully restarted"
                 fi
+                # Clean up any stale Docker resources
+                docker system prune -f
+                log "System pruned before job start"
                 ;;
               "job_completed")
                 # Clean up after job completion
                 docker system prune -f
+                log "System pruned after job completion"
                 ;;
             esac
             EOF
 
             chmod +x /usr/local/bin/runner-hook.sh
 
-            # Create a script to handle runner reconfiguration
+            # Create a more robust runner health check script
             cat > /usr/local/bin/reconfigure-runner.sh << 'EOF'
             #!/bin/bash
             set -e
 
-            # Check if runner is responsive
-            if ! curl -s http://localhost:8080/health >/dev/null 2>&1; then
-              echo "Runner is not responsive, reconfiguring..."
-              
-              # Stop the service
-              systemctl stop github-runner
-              
-              # Remove existing configuration
-              rm -rf /opt/github-runner/.runner
-              rm -rf /opt/github-runner/.credentials
-              rm -rf /opt/github-runner/.env
-              
-              # Clean up Docker
-              docker system prune -f
-              
-              # Restart Docker
-              systemctl restart docker
-              sleep 10
-              
-              # Start the service
-              systemctl start github-runner
+            # Log function
+            log() {
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/github-runner-health.log
+            }
+
+            # Check if the runner service is active
+            check_runner_service() {
+                if ! systemctl is-active github-runner >/dev/null 2>&1; then
+                    log "Runner service is not active"
+                    return 1
+                fi
+                return 0
+            }
+
+            # Check if runner process is running
+            check_runner_process() {
+                if ! pgrep -f "run.sh" >/dev/null; then
+                    log "Runner process is not running"
+                    return 1
+                fi
+                return 0
+            }
+
+            # Check Docker health
+            check_docker_health() {
+                if ! docker info >/dev/null 2>&1; then
+                    log "Docker is not healthy"
+                    return 1
+                fi
+                return 0
+            }
+
+            # Main health check logic
+            log "Starting health check"
+
+            NEEDS_RESTART=0
+
+            # Check Docker first
+            if ! check_docker_health; then
+                log "Attempting to restart Docker"
+                systemctl restart docker
+                sleep 10
+                if ! check_docker_health; then
+                    log "Docker failed to recover"
+                    NEEDS_RESTART=1
+                fi
+            fi
+
+            # Check runner service and process
+            if ! check_runner_service || ! check_runner_process; then
+                NEEDS_RESTART=1
+            fi
+
+            if [ $NEEDS_RESTART -eq 1 ]; then
+                log "Issues detected, performing full runner reset"
+                
+                # Stop services
+                systemctl stop github-runner
+                
+                # Clean up runner files
+                rm -rf /opt/github-runner/.runner
+                rm -rf /opt/github-runner/.credentials
+                rm -rf /opt/github-runner/.env
+                
+                # Clean up Docker
+                docker system prune -af --volumes
+                
+                # Restart Docker
+                systemctl restart docker
+                sleep 10
+                
+                # Start runner service
+                systemctl start github-runner
+                
+                log "Runner reset completed"
             else
-              echo "Runner is healthy"
+                log "Health check passed"
             fi
             EOF
 
             chmod +x /usr/local/bin/reconfigure-runner.sh
 
-            # Create a systemd timer to check runner health
-            cat > /etc/systemd/system/github-runner-healthcheck.service << EOF
-            [Unit]
-            Description=GitHub Runner Health Check
-            After=github-runner.service
-
-            [Service]
-            Type=oneshot
-            ExecStart=/usr/local/bin/reconfigure-runner.sh
-            User=root
-
-            [Install]
-            WantedBy=multi-user.target
-            EOF
-
+            # Create a more frequent health check timer
             cat > /etc/systemd/system/github-runner-healthcheck.timer << EOF
             [Unit]
-            Description=Run GitHub Runner Health Check every hour
+            Description=Run GitHub Runner Health Check frequently
 
             [Timer]
-            OnBootSec=5min
-            OnUnitActiveSec=1h
+            OnBootSec=1min
+            OnUnitActiveSec=5min
+            RandomizedDelaySec=30
             Unit=github-runner-healthcheck.service
 
             [Install]
             WantedBy=multi-user.target
             EOF
+
+            # Create log rotation for runner logs
+            cat > /etc/logrotate.d/github-runner << EOF
+            /var/log/github-runner*.log {
+                daily
+                rotate 7
+                compress
+                delaycompress
+                missingok
+                notifempty
+                create 0644 github-runner github-runner
+            }
+            EOF
+
+            # Create runner logs with proper permissions
+            touch /var/log/github-runner.log /var/log/github-runner-health.log
+            chown github-runner:github-runner /var/log/github-runner.log /var/log/github-runner-health.log
+            chmod 644 /var/log/github-runner.log /var/log/github-runner-health.log
 
             # Enable and start the services
             systemctl daemon-reload
