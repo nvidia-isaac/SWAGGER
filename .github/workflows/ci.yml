@@ -83,14 +83,6 @@ jobs:
           fi
           echo "--- End Git Installation Diagnostics ---"
           
-          echo "Verifying Git repository status..."
-          if ! git rev-parse --is-inside-work-tree; then
-              echo "ERROR: Not inside a Git work tree, or git command failed to determine it."
-              ls -la ${{ github.workspace }}
-          else
-              echo "Successfully inside a Git work tree."
-          fi
-
           echo "Installing Python dependencies (pip, pre-commit)..."
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
