@@ -51,18 +51,42 @@ jobs:
           echo "Installing git..."
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           
-          echo "Verifying git installation..."
-          if ! command -v git &> /dev/null; then
-              echo "ERROR: git command not found after installation attempt!"
+          echo "--- Git Installation Diagnostics ---"
+          echo "Current PATH: $PATH"
+          
+          echo "Checking for /usr/bin/git existence and permissions:"
+          if [ -f "/usr/bin/git" ]; then
+            echo "/usr/bin/git exists."
+            if [ -x "/usr/bin/git" ]; then
+              echo "/usr/bin/git is executable."
+              echo "Version from /usr/bin/git --version:"
+              /usr/bin/git --version
+            else
+              echo "ERROR: /usr/bin/git exists but is NOT executable."
+              ls -l /usr/bin/git
               exit 1
+            fi
+          else
+            echo "ERROR: /usr/bin/git does NOT exist after apt-get install attempt."
+            exit 1
           fi
-          git --version
+          
+          echo "Checking 'command -v git' (locates git via PATH):"
+          if command -v git &> /dev/null; then
+            echo "'command -v git' succeeded. Git found in PATH."
+            echo "Version from 'git --version' (via PATH):"
+            git --version
+          else
+            echo "ERROR: 'command -v git' FAILED. Git NOT found in PATH."
+            echo "This means pre-commit will likely fail. Exiting."
+            exit 1 # Exit if git is not found in PATH, as pre-commit needs it.
+          fi
+          echo "--- End Git Installation Diagnostics ---"
           
           echo "Verifying Git repository status..."
           if ! git rev-parse --is-inside-work-tree; then
               echo "ERROR: Not inside a Git work tree, or git command failed to determine it."
-              ls -la ${{ github.workspace }} # List files to see if .git is present
-              # exit 1 # Optionally exit if not in a git repo is unexpected here
+              ls -la ${{ github.workspace }}
           else
               echo "Successfully inside a Git work tree."
           fi
