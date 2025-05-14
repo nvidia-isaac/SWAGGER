@@ -37,7 +37,9 @@ jobs:
     services:
       docker:
         image: docker:26-dind
-        options: --privileged --network=host
+        options: --privileged
+        ports:
+          - 2375:2375
 
     steps:
       - name: Checkout code
@@ -90,7 +92,9 @@ jobs:
     services:
       docker:
         image: docker:26-dind
-        options: --privileged --network=host
+        options: --privileged
+        ports:
+          - 2375:2375
 
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +161,9 @@ jobs:
     services:
       docker:
         image: docker:26-dind
-        options: --privileged --network=host
+        options: --privileged
+        ports:
+          - 2375:2375
 
     steps:
       - uses: actions/checkout@v4
@@ -226,7 +232,9 @@ jobs:
     services:
       docker:
         image: docker:26-dind
-        options: --privileged --network=host
+        options: --privileged
+        ports:
+          - 2375:2375
 
     steps:
       - uses: actions/checkout@v4
