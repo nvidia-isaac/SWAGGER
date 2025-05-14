@@ -47,7 +47,7 @@ jobs:
         run: |
           set -e
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip python3-venv
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
 
