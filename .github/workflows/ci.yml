@@ -43,16 +43,43 @@ jobs:
           restore-keys: |
             precommit-
 
-      - name: Install dependencies
+      - name: Install dependencies and verify Git
         run: |
           set -e
-          apt-get update
+          echo "Updating package lists..."
+          apt-get update -y
+          echo "Installing git..."
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          
+          echo "Verifying git installation..."
+          if ! command -v git &> /dev/null; then
+              echo "ERROR: git command not found after installation attempt!"
+              exit 1
+          fi
+          git --version
+          
+          echo "Verifying Git repository status..."
+          if ! git rev-parse --is-inside-work-tree; then
+              echo "ERROR: Not inside a Git work tree, or git command failed to determine it."
+              ls -la ${{ github.workspace }} # List files to see if .git is present
+              # exit 1 # Optionally exit if not in a git repo is unexpected here
+          else
+              echo "Successfully inside a Git work tree."
+          fi
+
+          echo "Installing Python dependencies (pip, pre-commit)..."
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
+          pre-commit --version
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing files in workspace:"
+          ls -la
+          echo "Running pre-commit..."
+          pre-commit run --all-files
     timeout-minutes: 60
 
   package-check:
