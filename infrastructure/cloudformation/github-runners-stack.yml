@@ -439,30 +439,128 @@ Resources:
             [Unit]
             Description=GitHub Actions Runner
             After=network.target docker.service
+            StartLimitIntervalSec=0
             
             [Service]
             Type=simple
             User=github-runner
             WorkingDirectory=/opt/github-runner
+            ExecStartPre=/bin/bash -c 'if [ ! -f /opt/github-runner/.runner ]; then \
+              ./config.sh --url https://github.com/${GitHubRepoPath} --token \$(curl -s -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GitHubToken}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GitHubRepoPath}/actions/runners/registration-token" | jq -r ".token") \
+              --labels self-hosted,gpu --unattended --ephemeral; fi'
             ExecStart=/opt/github-runner/run.sh
             Restart=always
             RestartSec=10
+            StartLimitBurst=5
+            TimeoutStartSec=300
+            TimeoutStopSec=300
+            Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            Environment="DOCKER_HOST=unix:///var/run/docker.sock"
+            Environment="ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/runner-hook.sh"
+            Environment="ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/bin/runner-hook.sh"
             
             [Install]
             WantedBy=multi-user.target
             EOF
-            
-            # Configure the runner as non-root user using the registration token
-            su - github-runner -c "cd /opt/github-runner && ./config.sh --url https://github.com/${GitHubRepoPath} --token \$(curl -s -X POST \
-              -H \"Accept: application/vnd.github+json\" \
-              -H \"Authorization: Bearer ${GitHubToken}\" \
-              -H \"X-GitHub-Api-Version: 2022-11-28\" \
-              \"https://api.github.com/repos/${GitHubRepoPath}/actions/runners/registration-token\" | jq -r '.token') --labels self-hosted,gpu --unattended --ephemeral"
-            
-            # Enable and start the service
+
+            # Create runner hook script to handle job lifecycle
+            cat > /usr/local/bin/runner-hook.sh << 'EOF'
+            #!/bin/bash
+            set -e
+
+            # Log the event
+            echo "$(date): Runner hook called with event: $1" >> /var/log/github-runner.log
+
+            case "$1" in
+              "job_started")
+                # Clean up any stale Docker resources
+                docker system prune -f
+                # Reset Docker daemon if needed
+                if ! docker info >/dev/null 2>&1; then
+                  systemctl restart docker
+                  sleep 10
+                fi
+                ;;
+              "job_completed")
+                # Clean up after job completion
+                docker system prune -f
+                ;;
+            esac
+            EOF
+
+            chmod +x /usr/local/bin/runner-hook.sh
+
+            # Create a script to handle runner reconfiguration
+            cat > /usr/local/bin/reconfigure-runner.sh << 'EOF'
+            #!/bin/bash
+            set -e
+
+            # Check if runner is responsive
+            if ! curl -s http://localhost:8080/health >/dev/null 2>&1; then
+              echo "Runner is not responsive, reconfiguring..."
+              
+              # Stop the service
+              systemctl stop github-runner
+              
+              # Remove existing configuration
+              rm -rf /opt/github-runner/.runner
+              rm -rf /opt/github-runner/.credentials
+              rm -rf /opt/github-runner/.env
+              
+              # Clean up Docker
+              docker system prune -f
+              
+              # Restart Docker
+              systemctl restart docker
+              sleep 10
+              
+              # Start the service
+              systemctl start github-runner
+            else
+              echo "Runner is healthy"
+            fi
+            EOF
+
+            chmod +x /usr/local/bin/reconfigure-runner.sh
+
+            # Create a systemd timer to check runner health
+            cat > /etc/systemd/system/github-runner-healthcheck.service << EOF
+            [Unit]
+            Description=GitHub Runner Health Check
+            After=github-runner.service
+
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/local/bin/reconfigure-runner.sh
+            User=root
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            cat > /etc/systemd/system/github-runner-healthcheck.timer << EOF
+            [Unit]
+            Description=Run GitHub Runner Health Check every hour
+
+            [Timer]
+            OnBootSec=5min
+            OnUnitActiveSec=1h
+            Unit=github-runner-healthcheck.service
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            # Enable and start the services
             systemctl daemon-reload
             systemctl enable github-runner
+            systemctl enable github-runner-healthcheck.timer
             systemctl start github-runner
+            systemctl start github-runner-healthcheck.timer
 
   # Auto Scaling Group for runners
   RunnerAutoScalingGroup:

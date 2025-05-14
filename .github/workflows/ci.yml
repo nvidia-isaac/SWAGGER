@@ -33,7 +33,7 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged --gpus all
+      options: --privileged --gpus all --group-add 998
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
@@ -88,7 +88,7 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged --gpus all
+      options: --privileged --gpus all --group-add 998
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
@@ -157,7 +157,7 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged --gpus all
+      options: --privileged --gpus all --group-add 998
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
@@ -228,7 +228,7 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
     container:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
-      options: --privileged --gpus all
+      options: --privileged --gpus all --group-add 998
     services:
       docker:
         image: nvidia/dind:cuda-12.6.0
