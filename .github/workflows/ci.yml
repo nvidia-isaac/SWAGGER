@@ -34,6 +34,7 @@ jobs:
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory ${{ github.workspace }}
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,7 +63,6 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Listing files in workspace:"
           ls -la
-          git config --global --add safe.directory ${{ github.workspace }}
           git status
           git log -1
           echo "Running pre-commit..."
@@ -80,6 +80,7 @@ jobs:
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory ${{ github.workspace }}
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -117,6 +118,7 @@ jobs:
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory ${{ github.workspace }}
 
       - uses: actions/checkout@v4
 
@@ -169,6 +171,7 @@ jobs:
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory ${{ github.workspace }}
 
       - uses: actions/checkout@v4
 
@@ -225,6 +228,7 @@ jobs:
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory ${{ github.workspace }}
 
       - uses: actions/checkout@v4
 
