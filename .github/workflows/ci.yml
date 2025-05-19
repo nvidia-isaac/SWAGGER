@@ -28,7 +28,7 @@ jobs:
     name: Pre-commit Checks
     runs-on: self-hosted
     container:
-      image: python:3.12-slim-bullseye
+      image: python:3.12-slim
     steps:
       - name: Install Git
         run: |
@@ -74,7 +74,7 @@ jobs:
     runs-on: self-hosted
     needs: pre-commit
     container:
-      image: python:3.12-slim-bullseye
+      image: python:3.12-slim
     steps:
       - name: Install Git
         run: |
@@ -123,6 +123,11 @@ jobs:
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
 
       - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -189,6 +194,11 @@ jobs:
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
 
       - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
