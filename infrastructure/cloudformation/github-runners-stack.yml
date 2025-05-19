@@ -76,24 +76,30 @@ Parameters:
     MaxValue: 3653
 
 Conditions:
-  IsProduction: 
-    Fn::Equals: [!Ref Environment, 'production']
+  IsProduction:
+    Fn::Equals:
+      - Fn::Ref: Environment
+      - production
 
 Resources:
   # VPC Resources
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: !Ref VpcCidr
+      CidrBlock:
+        Fn::Ref: VpcCidr
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: !Sub ${Environment}-${ProjectName}-vpc
+          Value:
+            Fn::Sub: ${Environment}-${ProjectName}-vpc
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
         - Key: ManagedBy
           Value: CloudFormation
 
@@ -102,48 +108,65 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub ${Environment}-${ProjectName}-igw
+          Value:
+            Fn::Sub: ${Environment}-${ProjectName}-igw
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
         - Key: ManagedBy
           Value: CloudFormation
 
   VpcGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
+      VpcId:
+        Fn::Ref: VPC
+      InternetGatewayId:
+        Fn::Ref: InternetGateway
 
   PublicSubnet:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref VPC
-      CidrBlock: !Ref PublicSubnetCidr
-      AvailabilityZone: !Select [0, !GetAZs '']
+      VpcId:
+        Fn::Ref: VPC
+      CidrBlock:
+        Fn::Ref: PublicSubnetCidr
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ''
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${Environment}-${ProjectName}-public-subnet
+          Value:
+            Fn::Sub: ${Environment}-${ProjectName}-public-subnet
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
         - Key: ManagedBy
           Value: CloudFormation
 
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId:
+        Fn::Ref: VPC
       Tags:
         - Key: Name
-          Value: !Sub ${Environment}-${ProjectName}-rt
+          Value:
+            Fn::Sub: ${Environment}-${ProjectName}-rt
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
         - Key: ManagedBy
           Value: CloudFormation
 
@@ -151,23 +174,29 @@ Resources:
     Type: AWS::EC2::Route
     DependsOn: VpcGatewayAttachment
     Properties:
-      RouteTableId: !Ref RouteTable
+      RouteTableId:
+        Fn::Ref: RouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      GatewayId:
+        Fn::Ref: InternetGateway
 
   SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
-      RouteTableId: !Ref RouteTable
+      SubnetId:
+        Fn::Ref: PublicSubnet
+      RouteTableId:
+        Fn::Ref: RouteTable
 
   # Security Group
   BuildSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${Environment}-${ProjectName}-build-sg
+      GroupName:
+        Fn::Sub: ${Environment}-${ProjectName}-build-sg
       GroupDescription: Security group for build instances
-      VpcId: !Ref VPC
+      VpcId:
+        Fn::Ref: VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
@@ -190,11 +219,14 @@ Resources:
           Description: Allow all outbound traffic
       Tags:
         - Key: Name
-          Value: !Sub ${Environment}-${ProjectName}-build-sg
+          Value:
+            Fn::Sub: ${Environment}-${ProjectName}-build-sg
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
         - Key: ManagedBy
           Value: CloudFormation
 
@@ -202,7 +234,8 @@ Resources:
   RunnerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${Environment}-${ProjectName}-runner-role
+      RoleName:
+        Fn::Sub: ${Environment}-${ProjectName}-runner-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -214,9 +247,11 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
       Tags:
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
         - Key: ManagedBy
           Value: CloudFormation
 
@@ -225,25 +260,30 @@ Resources:
     Properties:
       Path: /
       Roles:
-        - !Ref RunnerRole
-      InstanceProfileName: !Sub ${Environment}-${ProjectName}-runner-profile
+        - Fn::Ref: RunnerRole
+      InstanceProfileName:
+        Fn::Sub: ${Environment}-${ProjectName}-runner-profile
 
   # Launch Template for runners
   RunnerLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub ${Environment}-${ProjectName}-runner-template
+      LaunchTemplateName:
+        Fn::Sub: ${Environment}-${ProjectName}-runner-template
       LaunchTemplateData:
         ImageId: ami-0eabc4ddf08279fc3  # Ubuntu 22.04 LTS
-        InstanceType: !Ref InstanceType
+        InstanceType:
+          Fn::Ref: InstanceType
         NetworkInterfaces:
           - DeviceIndex: 0
             AssociatePublicIpAddress: true
-            SubnetId: !Ref PublicSubnet
+            SubnetId:
+              Fn::Ref: PublicSubnet
             Groups:
-              - !Ref BuildSecurityGroup
+              - Fn::Ref: BuildSecurityGroup
         IamInstanceProfile:
-          Name: !Ref RunnerInstanceProfile
+          Name:
+            Fn::Ref: RunnerInstanceProfile
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
             Ebs:
@@ -262,407 +302,422 @@ Resources:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub ${Environment}-${ProjectName}-runner
+                Value:
+                  Fn::Sub: ${Environment}-${ProjectName}-runner
               - Key: Environment
-                Value: !Ref Environment
+                Value:
+                  Fn::Ref: Environment
               - Key: Project
-                Value: !Ref ProjectName
+                Value:
+                  Fn::Ref: ProjectName
               - Key: ManagedBy
                 Value: CloudFormation
         UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            
-            # Wait for apt lock to be released
-            while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-              echo "Waiting for other package manager to finish..."
-              sleep 1
-            done
-            
-            # Install Docker
-            apt-get update
-            apt-get install -y ca-certificates curl gnupg
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            chmod a+r /etc/apt/keyrings/docker.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-            
-            # Wait for apt lock again before updating
-            while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-              echo "Waiting for other package manager to finish..."
-              sleep 1
-            done
-            
-            apt-get update
-            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-            
-            # Debug information
-            echo "=== Debug Information ==="
-            lsblk
-            echo "=== Mount Points ==="
-            mount
-            echo "=== FSTAB ==="
-            cat /etc/fstab
-            
-            # Wait for EBS volume to be available and find the correct device
-            echo "Waiting for EBS volume to be attached..."
-            while true; do
-              # Check for NVMe devices
-              if [ -e /dev/nvme1n1 ]; then
-                EBS_DEVICE="/dev/nvme1n1"
-                break
-              elif [ -e /dev/nvme0n1 ]; then
-                EBS_DEVICE="/dev/nvme0n1"
-                break
+          Fn::Base64:
+            Fn::Sub: |
+              #!/bin/bash
+              set -e
+
+              # Wait for apt lock to be released
+              while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+                echo "Waiting for other package manager to finish..."
+                sleep 1
+              done
+
+              # Install Docker
+              apt-get update
+              apt-get install -y ca-certificates curl gnupg
+              install -m 0755 -d /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+              chmod a+r /etc/apt/keyrings/docker.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+              # Wait for apt lock again before updating
+              while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+                echo "Waiting for other package manager to finish..."
+                sleep 1
+              done
+
+              apt-get update
+              apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+              # Debug information
+              echo "=== Debug Information ==="
+              lsblk
+              echo "=== Mount Points ==="
+              mount
+              echo "=== FSTAB ==="
+              cat /etc/fstab
+
+              # Wait for EBS volume to be available and find the correct device
+              echo "Waiting for EBS volume to be attached..."
+              while true; do
+                # Check for NVMe devices
+                if [ -e /dev/nvme1n1 ]; then
+                  EBS_DEVICE="/dev/nvme1n1"
+                  break
+                elif [ -e /dev/nvme0n1 ]; then
+                  EBS_DEVICE="/dev/nvme0n1"
+                  break
+                fi
+                echo "Waiting for EBS volume..."
+                sleep 5
+              done
+
+              echo "Found EBS volume at $EBS_DEVICE"
+
+              # Wait for the volume to be ready
+              sleep 10
+
+              # Check if the volume is already formatted
+              if ! blkid $EBS_DEVICE; then
+                echo "Formatting EBS volume..."
+                mkfs -t ext4 $EBS_DEVICE
               fi
-              echo "Waiting for EBS volume..."
-              sleep 5
-            done
-            
-            echo "Found EBS volume at $EBS_DEVICE"
-            
-            # Wait for the volume to be ready
-            sleep 10
-            
-            # Check if the volume is already formatted
-            if ! blkid $EBS_DEVICE; then
-              echo "Formatting EBS volume..."
-              mkfs -t ext4 $EBS_DEVICE
-            fi
-            
-            # Create mount point and add to fstab
-            mkdir -p /var/lib/docker-cache
-            
-            # Remove any existing mount entry for this device
-            sed -i '/\/var\/lib\/docker-cache/d' /etc/fstab
-            
-            # Add new mount entry
-            echo "$EBS_DEVICE /var/lib/docker-cache ext4 defaults,nofail 0 2" >> /etc/fstab
-            
-            # Unmount if already mounted
-            umount /var/lib/docker-cache 2>/dev/null || true
-            
-            # Mount the volume
-            mount -a
-            
-            # Verify mount
-            echo "=== After Mount ==="
-            mount | grep docker-cache
-            df -h /var/lib/docker-cache
-            
-            # Configure Docker to use the mounted volume for cache
-            mkdir -p /etc/docker
-            cat > /etc/docker/daemon.json << EOF
-            {
-              "data-root": "/var/lib/docker-cache",
-              "storage-driver": "overlay2",
-              "log-driver": "json-file",
-              "log-opts": {
-                "max-size": "100m",
-                "max-file": "3"
+
+              # Create mount point and add to fstab
+              mkdir -p /var/lib/docker-cache
+
+              # Remove any existing mount entry for this device
+              sed -i '/\/var\/lib\/docker-cache/d' /etc/fstab
+
+              # Add new mount entry
+              echo "$EBS_DEVICE /var/lib/docker-cache ext4 defaults,nofail 0 2" >> /etc/fstab
+
+              # Unmount if already mounted
+              umount /var/lib/docker-cache 2>/dev/null || true
+
+              # Mount the volume
+              mount -a
+
+              # Verify mount
+              echo "=== After Mount ==="
+              mount | grep docker-cache
+              df -h /var/lib/docker-cache
+
+              # Configure Docker to use the mounted volume for cache
+              mkdir -p /etc/docker
+              cat > /etc/docker/daemon.json << EOF
+              {
+                "data-root": "/var/lib/docker-cache",
+                "storage-driver": "overlay2",
+                "log-driver": "json-file",
+                "log-opts": {
+                  "max-size": "100m",
+                  "max-file": "3"
+                }
               }
-            }
-            EOF
-            
-            # Stop Docker before moving data
-            systemctl stop docker
-            
-            # Move existing Docker data if it exists
-            if [ -d "/var/lib/docker" ] && [ "$(ls -A /var/lib/docker)" ]; then
-              echo "Moving existing Docker data..."
-              mv /var/lib/docker/* /var/lib/docker-cache/ 2>/dev/null || true
-            fi
-            
-            # Restart Docker to apply new configuration
-            systemctl start docker
-            
-            # Create Docker cache cleanup script
-            cat > /usr/local/bin/cleanup-docker-cache.sh << 'EOF'
-            #!/bin/bash
-            
-            # Set threshold (in percentage) for cleanup
-            THRESHOLD=80
-            
-            # Get current disk usage
-            USAGE=$(df -h /var/lib/docker-cache | awk 'NR==2 {print $5}' | sed 's/%//')
-            
-            if [ "$USAGE" -gt "$THRESHOLD" ]; then
-              echo "Docker cache usage is at $USAGE%, cleaning up..."
-              
-              # Remove unused containers
-              docker container prune -f
-              
-              # Remove unused images
-              docker image prune -a -f
-              
-              # Remove unused volumes
-              docker volume prune -f
-              
-              # Remove build cache
-              docker builder prune -f
-              
-              echo "Cleanup completed"
-            else
-              echo "Docker cache usage is at $USAGE%, no cleanup needed"
-            fi
-            EOF
-            
-            chmod +x /usr/local/bin/cleanup-docker-cache.sh
-            
-            # Add cleanup script to crontab
-            (crontab -l 2>/dev/null; echo "0 */4 * * * /usr/local/bin/cleanup-docker-cache.sh") | crontab -
-            
-            # Wait for apt lock before installing jq
-            while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-              echo "Waiting for other package manager to finish..."
-              sleep 1
-            done
-            
-            # Install jq for JSON parsing
-            apt-get install -y jq
-            
-            # Install GitHub Actions runner
-            mkdir -p /opt/github-runner
-            cd /opt/github-runner
-            curl -o actions-runner-linux-x64-2.323.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-            echo "0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64-2.323.0.tar.gz" | shasum -a 256 -c
-            tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
-            
-            # Create runner user and add to docker group
-            useradd -m -s /bin/bash github-runner
-            usermod -aG docker github-runner
-            
-            # Set ownership of runner directory
-            chown -R github-runner:github-runner /opt/github-runner
+              EOF
 
-            # Create systemd service for GitHub runner
-            cat > /etc/systemd/system/github-runner.service << EOF
-            [Unit]
-            Description=GitHub Actions Runner
-            After=network.target docker.service
-            StartLimitIntervalSec=0
-            
-            [Service]
-            Type=simple
-            User=github-runner
-            WorkingDirectory=/opt/github-runner
-            ExecStartPre=/bin/bash -c 'if [ ! -f /opt/github-runner/.runner ] || [ ! -f /opt/github-runner/.credentials ]; then \
-              rm -rf /opt/github-runner/.runner /opt/github-runner/.credentials; \
-              ./config.sh --url https://github.com/${GitHubRepoPath} --token \$(curl -s -X POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${GitHubToken}" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${GitHubRepoPath}/actions/runners/registration-token" | jq -r ".token") \
-              --labels self-hosted,gpu --unattended --ephemeral --replace || exit 1; fi'
-            ExecStart=/opt/github-runner/run.sh
-            ExecStopPost=/bin/bash -c 'rm -rf /opt/github-runner/.runner /opt/github-runner/.credentials'
-            Restart=always
-            RestartSec=10
-            StartLimitBurst=10
-            TimeoutStartSec=300
-            TimeoutStopSec=300
-            KillMode=process
-            KillSignal=SIGTERM
-            Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-            Environment="DOCKER_HOST=unix:///var/run/docker.sock"
-            Environment="ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/runner-hook.sh"
-            Environment="ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/bin/runner-hook.sh"
-            Environment="RUNNER_ALLOW_RUNASROOT=0"
-            
-            [Install]
-            WantedBy=multi-user.target
-            EOF
+              # Stop Docker before moving data
+              systemctl stop docker
 
-            # Create runner hook script to handle job lifecycle
-            cat > /usr/local/bin/runner-hook.sh << 'EOF'
-            #!/bin/bash
-            set -e
+              # Move existing Docker data if it exists
+              if [ -d "/var/lib/docker" ] && [ "$(ls -A /var/lib/docker)" ]; then
+                echo "Moving existing Docker data..."
+                mv /var/lib/docker/* /var/lib/docker-cache/ 2>/dev/null || true
+              fi
 
-            # Log the event with timestamp and more details
-            log() {
-                echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/github-runner.log
-            }
+              # Restart Docker to apply new configuration
+              systemctl start docker
 
-            log "Runner hook called with event: $1"
-            log "Current Docker status: $(systemctl status docker | grep Active)"
+              # Create Docker cache cleanup script
+              cat > /usr/local/bin/cleanup-docker-cache.sh << 'EOF'
+              #!/bin/bash
 
-            case "$1" in
-              "job_started")
-                # Verify Docker is running and healthy
-                if ! docker info >/dev/null 2>&1; then
-                  log "Docker appears to be unhealthy, attempting restart"
+              # Set threshold (in percentage) for cleanup
+              THRESHOLD=80
+
+              # Get current disk usage
+              USAGE=$(df -h /var/lib/docker-cache | awk 'NR==2 {print $5}' | sed 's/%//')
+
+              if [ "$USAGE" -gt "$THRESHOLD" ]; then
+                echo "Docker cache usage is at $USAGE%, cleaning up..."
+
+                # Remove unused containers
+                docker container prune -f
+
+                # Remove unused images
+                docker image prune -a -f
+
+                # Remove unused volumes
+                docker volume prune -f
+
+                # Remove build cache
+                docker builder prune -f
+
+                echo "Cleanup completed"
+              else
+                echo "Docker cache usage is at $USAGE%, no cleanup needed"
+              fi
+              EOF
+
+              chmod +x /usr/local/bin/cleanup-docker-cache.sh
+
+              # Add cleanup script to crontab
+              (crontab -l 2>/dev/null; echo "0 */4 * * * /usr/local/bin/cleanup-docker-cache.sh") | crontab -
+
+              # Wait for apt lock before installing jq
+              while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+                echo "Waiting for other package manager to finish..."
+                sleep 1
+              done
+
+              # Install jq for JSON parsing
+              apt-get install -y jq
+
+              # Install GitHub Actions runner
+              mkdir -p /opt/github-runner
+              cd /opt/github-runner
+              curl -o actions-runner-linux-x64-2.323.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+              echo "0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64-2.323.0.tar.gz" | shasum -a 256 -c
+              tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
+
+              # Create runner user and add to docker group
+              useradd -m -s /bin/bash github-runner
+              usermod -aG docker github-runner
+
+              # Set ownership of runner directory
+              chown -R github-runner:github-runner /opt/github-runner
+
+              # Create systemd service for GitHub runner
+              cat > /etc/systemd/system/github-runner.service << EOF
+              [Unit]
+              Description=GitHub Actions Runner
+              After=network.target docker.service
+              StartLimitIntervalSec=0
+
+              [Service]
+              Type=simple
+              User=github-runner
+              WorkingDirectory=/opt/github-runner
+              ExecStartPre=/bin/bash -c 'if [ ! -f /opt/github-runner/.runner ] || [ ! -f /opt/github-runner/.credentials ]; then \
+                rm -rf /opt/github-runner/.runner /opt/github-runner/.credentials; \
+                ./config.sh --url https://github.com/${GitHubRepoPath} --token \$(curl -s -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GitHubToken}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${GitHubRepoPath}/actions/runners/registration-token" | jq -r ".token") \
+                --labels self-hosted,gpu --unattended --ephemeral --replace || exit 1; fi'
+              ExecStart=/opt/github-runner/run.sh
+              ExecStopPost=/bin/bash -c 'rm -rf /opt/github-runner/.runner /opt/github-runner/.credentials'
+              Restart=always
+              RestartSec=10
+              StartLimitBurst=10
+              TimeoutStartSec=300
+              TimeoutStopSec=300
+              KillMode=process
+              KillSignal=SIGTERM
+              Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+              Environment="DOCKER_HOST=unix:///var/run/docker.sock"
+              Environment="ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/runner-hook.sh"
+              Environment="ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/bin/runner-hook.sh"
+              Environment="RUNNER_ALLOW_RUNASROOT=0"
+
+              [Install]
+              WantedBy=multi-user.target
+              EOF
+
+              # Create runner hook script to handle job lifecycle
+              cat > /usr/local/bin/runner-hook.sh << 'EOF'
+              #!/bin/bash
+              set -e
+
+              # Log the event with timestamp and more details
+              log() {
+                  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/github-runner.log
+              }
+
+              log "Runner hook called with event: $1"
+              log "Current Docker status: $(systemctl status docker | grep Active)"
+
+              case "$1" in
+                "job_started")
+                  # Verify Docker is running and healthy
+                  if ! docker info >/dev/null 2>&1; then
+                    log "Docker appears to be unhealthy, attempting restart"
+                    systemctl restart docker
+                    sleep 10
+                    if ! docker info >/dev/null 2>&1; then
+                      log "Docker failed to recover after restart"
+                      exit 1
+                    fi
+                    log "Docker successfully restarted"
+                  fi
+                  # Clean up any stale Docker resources
+                  docker system prune -f
+                  log "System pruned before job start"
+                  ;;
+                "job_completed")
+                  # Clean up after job completion
+                  docker system prune -f
+                  log "System pruned after job completion"
+                  ;;
+              esac
+              EOF
+
+              chmod +x /usr/local/bin/runner-hook.sh
+
+              # Create a more robust runner health check script
+              cat > /usr/local/bin/reconfigure-runner.sh << 'EOF'
+              #!/bin/bash
+              set -e
+
+              # Log function
+              log() {
+                  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/github-runner-health.log
+              }
+
+              # Check if the runner service is active
+              check_runner_service() {
+                  if ! systemctl is-active github-runner >/dev/null 2>&1; then
+                      log "Runner service is not active"
+                      return 1
+                  fi
+                  return 0
+              }
+
+              # Check if runner process is running
+              check_runner_process() {
+                  if ! pgrep -f "run.sh" >/dev/null; then
+                      log "Runner process is not running"
+                      return 1
+                  fi
+                  return 0
+              }
+
+              # Check Docker health
+              check_docker_health() {
+                  if ! docker info >/dev/null 2>&1; then
+                      log "Docker is not healthy"
+                      return 1
+                  fi
+                  return 0
+              }
+
+              # Main health check logic
+              log "Starting health check"
+
+              NEEDS_RESTART=0
+
+              # Check Docker first
+              if ! check_docker_health; then
+                  log "Attempting to restart Docker"
                   systemctl restart docker
                   sleep 10
-                  if ! docker info >/dev/null 2>&1; then
-                    log "Docker failed to recover after restart"
-                    exit 1
+                  if ! check_docker_health; then
+                      log "Docker failed to recover"
+                      NEEDS_RESTART=1
                   fi
-                  log "Docker successfully restarted"
-                fi
-                # Clean up any stale Docker resources
-                docker system prune -f
-                log "System pruned before job start"
-                ;;
-              "job_completed")
-                # Clean up after job completion
-                docker system prune -f
-                log "System pruned after job completion"
-                ;;
-            esac
-            EOF
+              fi
 
-            chmod +x /usr/local/bin/runner-hook.sh
+              # Check runner service and process
+              if ! check_runner_service || ! check_runner_process; then
+                  NEEDS_RESTART=1
+              fi
 
-            # Create a more robust runner health check script
-            cat > /usr/local/bin/reconfigure-runner.sh << 'EOF'
-            #!/bin/bash
-            set -e
+              if [ $NEEDS_RESTART -eq 1 ]; then
+                  log "Issues detected, performing full runner reset"
 
-            # Log function
-            log() {
-                echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/github-runner-health.log
-            }
+                  # Stop services
+                  systemctl stop github-runner
 
-            # Check if the runner service is active
-            check_runner_service() {
-                if ! systemctl is-active github-runner >/dev/null 2>&1; then
-                    log "Runner service is not active"
-                    return 1
-                fi
-                return 0
-            }
+                  # Clean up runner files
+                  rm -rf /opt/github-runner/.runner
+                  rm -rf /opt/github-runner/.credentials
+                  rm -rf /opt/github-runner/.env
 
-            # Check if runner process is running
-            check_runner_process() {
-                if ! pgrep -f "run.sh" >/dev/null; then
-                    log "Runner process is not running"
-                    return 1
-                fi
-                return 0
-            }
+                  # Clean up Docker
+                  docker system prune -af --volumes
 
-            # Check Docker health
-            check_docker_health() {
-                if ! docker info >/dev/null 2>&1; then
-                    log "Docker is not healthy"
-                    return 1
-                fi
-                return 0
-            }
+                  # Restart Docker
+                  systemctl restart docker
+                  sleep 10
 
-            # Main health check logic
-            log "Starting health check"
+                  # Start runner service
+                  systemctl start github-runner
 
-            NEEDS_RESTART=0
+                  log "Runner reset completed"
+              else
+                  log "Health check passed"
+              fi
+              EOF
 
-            # Check Docker first
-            if ! check_docker_health; then
-                log "Attempting to restart Docker"
-                systemctl restart docker
-                sleep 10
-                if ! check_docker_health; then
-                    log "Docker failed to recover"
-                    NEEDS_RESTART=1
-                fi
-            fi
+              chmod +x /usr/local/bin/reconfigure-runner.sh
 
-            # Check runner service and process
-            if ! check_runner_service || ! check_runner_process; then
-                NEEDS_RESTART=1
-            fi
+              # Create a more frequent health check timer
+              cat > /etc/systemd/system/github-runner-healthcheck.timer << EOF
+              [Unit]
+              Description=Run GitHub Runner Health Check frequently
 
-            if [ $NEEDS_RESTART -eq 1 ]; then
-                log "Issues detected, performing full runner reset"
-                
-                # Stop services
-                systemctl stop github-runner
-                
-                # Clean up runner files
-                rm -rf /opt/github-runner/.runner
-                rm -rf /opt/github-runner/.credentials
-                rm -rf /opt/github-runner/.env
-                
-                # Clean up Docker
-                docker system prune -af --volumes
-                
-                # Restart Docker
-                systemctl restart docker
-                sleep 10
-                
-                # Start runner service
-                systemctl start github-runner
-                
-                log "Runner reset completed"
-            else
-                log "Health check passed"
-            fi
-            EOF
+              [Timer]
+              OnBootSec=1min
+              OnUnitActiveSec=5min
+              RandomizedDelaySec=30
+              Unit=github-runner-healthcheck.service
 
-            chmod +x /usr/local/bin/reconfigure-runner.sh
+              [Install]
+              WantedBy=multi-user.target
+              EOF
 
-            # Create a more frequent health check timer
-            cat > /etc/systemd/system/github-runner-healthcheck.timer << EOF
-            [Unit]
-            Description=Run GitHub Runner Health Check frequently
+              # Create log rotation for runner logs
+              cat > /etc/logrotate.d/github-runner << EOF
+              /var/log/github-runner*.log {
+                  daily
+                  rotate 7
+                  compress
+                  delaycompress
+                  missingok
+                  notifempty
+                  create 0644 github-runner github-runner
+              }
+              EOF
 
-            [Timer]
-            OnBootSec=1min
-            OnUnitActiveSec=5min
-            RandomizedDelaySec=30
-            Unit=github-runner-healthcheck.service
+              # Create runner logs with proper permissions
+              touch /var/log/github-runner.log /var/log/github-runner-health.log
+              chown github-runner:github-runner /var/log/github-runner.log /var/log/github-runner-health.log
+              chmod 644 /var/log/github-runner.log /var/log/github-runner-health.log
 
-            [Install]
-            WantedBy=multi-user.target
-            EOF
-
-            # Create log rotation for runner logs
-            cat > /etc/logrotate.d/github-runner << EOF
-            /var/log/github-runner*.log {
-                daily
-                rotate 7
-                compress
-                delaycompress
-                missingok
-                notifempty
-                create 0644 github-runner github-runner
-            }
-            EOF
-
-            # Create runner logs with proper permissions
-            touch /var/log/github-runner.log /var/log/github-runner-health.log
-            chown github-runner:github-runner /var/log/github-runner.log /var/log/github-runner-health.log
-            chmod 644 /var/log/github-runner.log /var/log/github-runner-health.log
-
-            # Enable and start the services
-            systemctl daemon-reload
-            systemctl enable github-runner
-            systemctl enable github-runner-healthcheck.timer
-            systemctl start github-runner
-            systemctl start github-runner-healthcheck.timer
+              # Enable and start the services
+              systemctl daemon-reload
+              systemctl enable github-runner
+              systemctl enable github-runner-healthcheck.timer
+              systemctl start github-runner
+              systemctl start github-runner-healthcheck.timer
 
   # Auto Scaling Group for runners
   RunnerAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub ${Environment}-${ProjectName}-runners
+      AutoScalingGroupName:
+        Fn::Sub: ${Environment}-${ProjectName}-runners
       LaunchTemplate:
-        LaunchTemplateId: !Ref RunnerLaunchTemplate
-        Version: !GetAtt RunnerLaunchTemplate.LatestVersionNumber
-      MinSize: !Ref RunnerCount
-      MaxSize: !Ref RunnerCount
-      DesiredCapacity: !Ref RunnerCount
+        LaunchTemplateId:
+          Fn::Ref: RunnerLaunchTemplate
+        Version:
+          Fn::GetAtt:
+            - RunnerLaunchTemplate
+            - LatestVersionNumber
+      MinSize:
+        Fn::Ref: RunnerCount
+      MaxSize:
+        Fn::Ref: RunnerCount
+      DesiredCapacity:
+        Fn::Ref: RunnerCount
       VPCZoneIdentifier:
-        - !Ref PublicSubnet
+        - Fn::Ref: PublicSubnet
       Tags:
         - Key: Name
-          Value: !Sub ${Environment}-${ProjectName}-runner
+          Value:
+            Fn::Sub: ${Environment}-${ProjectName}-runner
           PropagateAtLaunch: true
         - Key: Environment
-          Value: !Ref Environment
+          Value:
+            Fn::Ref: Environment
           PropagateAtLaunch: true
         - Key: Project
-          Value: !Ref ProjectName
+          Value:
+            Fn::Ref: ProjectName
           PropagateAtLaunch: true
         - Key: ManagedBy
           Value: CloudFormation
@@ -671,20 +726,27 @@ Resources:
 Outputs:
   VpcId:
     Description: ID of the VPC
-    Value: !Ref VPC
+    Value:
+      Fn::Ref: VPC
 
   PublicSubnetId:
     Description: ID of the public subnet
-    Value: !Ref PublicSubnet
+    Value:
+      Fn::Ref: PublicSubnet
 
   SecurityGroupId:
     Description: ID of the build security group
-    Value: !Ref BuildSecurityGroup
+    Value:
+      Fn::Ref: BuildSecurityGroup
 
   RunnerRoleArn:
     Description: ARN of the runner IAM role
-    Value: !GetAtt RunnerRole.Arn
+    Value:
+      Fn::GetAtt:
+        - RunnerRole
+        - Arn
 
   RunnerAutoScalingGroupName:
     Description: Name of the runner Auto Scaling Group
-    Value: !Ref RunnerAutoScalingGroup
+    Value:
+      Fn::Ref: RunnerAutoScalingGroup
