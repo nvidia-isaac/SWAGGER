@@ -55,9 +55,8 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           python3 -m pip install --upgrade pip
-          python3 -m pip install poetry
-          poetry env use python3.12
-          poetry install
+          python3 -m pip install pre-commit
+          pre-commit --version
 
       - name: Run pre-commit
         run: |
@@ -265,6 +264,7 @@ jobs:
           docker compose up rest-api &
           sleep 10
           cd ../
+          poetry env use python3.12
           poetry install
           poetry run python scripts/test_api_client.py \
             --map_path maps/carter_warehouse_navigation.png \
