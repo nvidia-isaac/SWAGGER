@@ -152,22 +152,7 @@ jobs:
           mkdir -p test-results
           poetry run python -m unittest discover -p "test_*.py" -v > test-results/unit-tests.txt
           # Convert unittest output to JUnit XML format
-          poetry run python -c 'import xml.etree.ElementTree as ET; import re; import sys; \
-          def parse_unittest_output(filename): \
-              root = ET.Element("testsuites"); \
-              suite = ET.SubElement(root, "testsuite", name="unit-tests"); \
-              with open(filename, "r") as f: \
-                  content = f.read(); \
-              test_pattern = r"test_(\w+) \((.*?)\) \.\.\. (ok|FAIL|ERROR)"; \
-              for match in re.finditer(test_pattern, content): \
-                  test_name, test_class, status = match.groups(); \
-                  testcase = ET.SubElement(suite, "testcase", classname=test_class, name=test_name); \
-                  if status != "ok": \
-                      failure = ET.SubElement(testcase, "failure"); \
-                      failure.text = f"Test {test_name} in {test_class} {status.lower()}ed"; \
-              tree = ET.ElementTree(root); \
-              tree.write("test-results/unit-tests.xml", encoding="utf-8", xml_declaration=True); \
-          parse_unittest_output("test-results/unit-tests.txt")'
+          poetry run python -c "import xml.etree.ElementTree as ET, re; root = ET.Element('testsuites'); suite = ET.SubElement(root, 'testsuite', name='unit-tests'); [suite.append(ET.SubElement(suite, 'testcase', classname=m.group(2), name=m.group(1))) if m.group(3) == 'ok' else suite.append(ET.SubElement(suite, 'testcase', classname=m.group(2), name=m.group(1)).append(ET.SubElement(suite, 'failure', message=f'Test {m.group(1)} in {m.group(2)} {m.group(3).lower()}ed'))) for m in re.finditer(r'test_(\w+) \((.*?)\) \.\.\. (ok|FAIL|ERROR)', open('test-results/unit-tests.txt').read())]; ET.ElementTree(root).write('test-results/unit-tests.xml', encoding='utf-8', xml_declaration=True)"
 
       - name: Upload test results
         if: always()
