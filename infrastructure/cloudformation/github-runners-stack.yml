@@ -64,7 +64,7 @@ Parameters:
       - g4dn.xlarge
       - g4dn.2xlarge
       - g4dn.4xlarge
-      - g5.xlargexr  bv
+      - g5.xlarge
       - g5.2xlarge
       - g5.4xlarge
 
@@ -76,7 +76,8 @@ Parameters:
     MaxValue: 3653
 
 Conditions:
-  IsProduction: !Equals [!Ref Environment, 'production']
+  IsProduction: 
+    Fn::Equals: [!Ref Environment, 'production']
 
 Resources:
   # VPC Resources
@@ -686,4 +687,4 @@ Outputs:
 
   RunnerAutoScalingGroupName:
     Description: Name of the runner Auto Scaling Group
-    Value: !Ref RunnerAutoScalingGroup 
+    Value: !Ref RunnerAutoScalingGroup

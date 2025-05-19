@@ -35,7 +35,6 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git config --global --add safe.directory ${{ github.workspace }}
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,7 +81,6 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git config --global --add safe.directory ${{ github.workspace }}
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -121,7 +119,6 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git config --global --add safe.directory ${{ github.workspace }}
 
       - uses: actions/checkout@v4
 
@@ -175,7 +172,6 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git config --global --add safe.directory ${{ github.workspace }}
 
       - uses: actions/checkout@v4
 
@@ -233,7 +229,6 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git config --global --add safe.directory ${{ github.workspace }}
 
       - uses: actions/checkout@v4
 
