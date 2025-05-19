@@ -30,11 +30,15 @@ jobs:
     container:
       image: python:3.12-slim-bullseye
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -44,59 +48,14 @@ jobs:
           restore-keys: |
             precommit-
 
-      - name: Install dependencies and verify Git
+      - name: Install dependencies
         run: |
           set -e
-          echo "Updating package lists..."
           apt-get update -y
-          echo "Installing git..."
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
-          
-          echo "--- Git Installation Diagnostics ---"
-          echo "Current PATH: $PATH"
-          
-          echo "Checking for /usr/bin/git existence and permissions:"
-          if [ -f "/usr/bin/git" ]; then
-            echo "/usr/bin/git exists."
-            if [ -x "/usr/bin/git" ]; then
-              echo "/usr/bin/git is executable."
-              echo "Version from /usr/bin/git --version:"
-              /usr/bin/git --version
-            else
-              echo "ERROR: /usr/bin/git exists but is NOT executable."
-              ls -l /usr/bin/git
-              exit 1
-            fi
-          else
-            echo "ERROR: /usr/bin/git does NOT exist after apt-get install attempt."
-            exit 1
-          fi
-          
-          echo "Checking 'command -v git' (locates git via PATH):"
-          if command -v git &> /dev/null; then
-            echo "'command -v git' succeeded. Git found in PATH."
-            echo "Version from 'git --version' (via PATH):"
-            git --version
-          else
-            echo "ERROR: 'command -v git' FAILED. Git NOT found in PATH."
-            echo "This means pre-commit will likely fail. Exiting."
-            exit 1 # Exit if git is not found in PATH, as pre-commit needs it.
-          fi
-          echo "--- End Git Installation Diagnostics ---"
-          
-          echo "Installing Python dependencies (pip, pre-commit)..."
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
           pre-commit --version
-
-      - name: Initialize Git Repository
-        run: |
-          git init
-          git config --global --add safe.directory ${{ github.workspace }}
-          git remote add origin ${{ github.server_url }}/${{ github.repository }}
-          git fetch origin
-          git checkout -b ${{ github.head_ref || github.ref_name }}
-          git reset --hard origin/${{ github.head_ref || github.ref_name }}
 
       - name: Run pre-commit
         working-directory: ${{ github.workspace }}
@@ -104,10 +63,6 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Listing files in workspace:"
           ls -la
-          echo "Checking git status:"
-          git status
-          echo "Checking git config:"
-          git config --list
           echo "Running pre-commit..."
           pre-commit run --all-files
     timeout-minutes: 60
@@ -119,6 +74,11 @@ jobs:
     container:
       image: python:3.12-slim-bullseye
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -151,6 +111,11 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+
       - uses: actions/checkout@v4
 
       - name: Cache Python packages
@@ -198,6 +163,11 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+
       - uses: actions/checkout@v4
 
       - name: Install dependencies
@@ -249,6 +219,11 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+
       - uses: actions/checkout@v4
 
       - name: Setup Python
