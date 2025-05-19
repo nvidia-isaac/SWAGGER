@@ -62,6 +62,7 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Listing files in workspace:"
           ls -la
+          git config --global --add safe.directory ${{ github.workspace }}
           git status
           git log -1
           echo "Running pre-commit..."
