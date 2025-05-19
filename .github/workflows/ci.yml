@@ -34,6 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -87,6 +88,15 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
           pre-commit --version
+
+      - name: Initialize Git Repository
+        run: |
+          git init
+          git config --global --add safe.directory ${{ github.workspace }}
+          git remote add origin ${{ github.server_url }}/${{ github.repository }}
+          git fetch origin
+          git checkout -b ${{ github.head_ref || github.ref_name }}
+          git reset --hard origin/${{ github.head_ref || github.ref_name }}
 
       - name: Run pre-commit
         working-directory: ${{ github.workspace }}
