@@ -94,6 +94,10 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Listing files in workspace:"
           ls -la
+          echo "Checking git status:"
+          git status
+          echo "Checking git config:"
+          git config --list
           echo "Running pre-commit..."
           pre-commit run --all-files
     timeout-minutes: 60
