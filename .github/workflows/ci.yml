@@ -24,26 +24,20 @@ env:
   PYTHONPATH: ${{ github.workspace }}
 
 jobs:
-  pre-commit:
-    name: Pre-commit Checks
+  setup-git:
+    name: Setup Git and LFS
     runs-on: self-hosted
     container:
       image: python:3.12-slim
     steps:
-      - name: Setup Git and Git LFS
+      - name: Install Git and LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Configure Git LFS
           git lfs install --local
-          # Remove existing pre-push hook if it exists
-          if [ -f .git/hooks/pre-push ]; then
-            rm .git/hooks/pre-push
-          fi
-          # Reinstall Git LFS hooks
+          if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
           git lfs update --force
-          # Configure Git to skip hooks in CI
           git config --global core.hooksPath /tmp/git-hooks
           mkdir -p /tmp/git-hooks
 
@@ -53,74 +47,51 @@ jobs:
           lfs: true
           fetch-depth: 0
 
+  pre-commit:
+    name: Pre-commit Checks
+    needs: setup-git
+    runs-on: self-hosted
+    container:
+      image: python:3.12-slim
+    steps:
       - name: Cache Python packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: precommit-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: |
-            precommit-
+          restore-keys: precommit-
 
       - name: Install dependencies
         run: |
-          set -e
-          python3 -m pip install --upgrade pip
-          python3 -m pip install pre-commit
+          python3 -m pip install --upgrade pip pre-commit
           pre-commit --version
 
       - name: Run pre-commit
         run: |
           echo "Current directory: $(pwd)"
-          echo "Listing files in workspace:"
           ls -la
           git status
           git log -1
-          echo "Running pre-commit..."
           pre-commit run --all-files
     timeout-minutes: 60
 
   package-check:
     name: Package Check
-    runs-on: self-hosted
     needs: pre-commit
+    runs-on: self-hosted
     container:
       image: python:3.12-slim
     steps:
-      - name: Setup Git and Git LFS
-        run: |
-          apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
-          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Configure Git LFS
-          git lfs install --local
-          # Remove existing pre-push hook if it exists
-          if [ -f .git/hooks/pre-push ]; then
-            rm .git/hooks/pre-push
-          fi
-          # Reinstall Git LFS hooks
-          git lfs update --force
-          # Configure Git to skip hooks in CI
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-
-      - name: Cache pip packages for Poetry
+      - name: Cache pip packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: poetry-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            poetry-pip-
+          restore-keys: poetry-pip-
 
       - name: Install dependencies
         run: |
-          set -e
-          python3 -m pip install --upgrade pip
-          python3 -m pip install poetry
+          python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
 
@@ -138,27 +109,6 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Setup Git and Git LFS
-        run: |
-          apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
-          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Configure Git LFS
-          git lfs install --local
-          # Remove existing pre-push hook if it exists
-          if [ -f .git/hooks/pre-push ]; then
-            rm .git/hooks/pre-push
-          fi
-          # Reinstall Git LFS hooks
-          git lfs update --force
-          # Configure Git to skip hooks in CI
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
-
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -174,11 +124,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          set -e
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
-          python3 -m pip install --upgrade pip
-          python3 -m pip install poetry
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
+          python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
 
@@ -186,7 +135,6 @@ jobs:
         run: |
           mkdir -p test-results
           poetry run python -m unittest discover -p "test_*.py" -v > test-results/unit-tests.txt
-          # Convert unittest output to JUnit XML format
           poetry run python -c 'import xml.etree.ElementTree as ET, re; root = ET.Element("testsuites"); suite = ET.SubElement(root, "testsuite", name="unit-tests"); [suite.append(ET.SubElement(suite, "testcase", classname=m.group(2), name=m.group(1))) if m.group(3) == "ok" else suite.append(ET.SubElement(suite, "testcase", classname=m.group(2), name=m.group(1)).append(ET.SubElement(suite, "failure", message=f"Test {m.group(1)} in {m.group(2)} {m.group(3).lower()}ed"))) for m in re.finditer(r"test_(\w+) \((.*?)\) \.\.\. (ok|FAIL|ERROR)", open("test-results/unit-tests.txt").read())]; ET.ElementTree(root).write("test-results/unit-tests.xml", encoding="utf-8", xml_declaration=True)'
 
       - name: Upload test results
@@ -208,27 +156,6 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Setup Git and Git LFS
-        run: |
-          apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
-          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Configure Git LFS
-          git lfs install --local
-          # Remove existing pre-push hook if it exists
-          if [ -f .git/hooks/pre-push ]; then
-            rm .git/hooks/pre-push
-          fi
-          # Reinstall Git LFS hooks
-          git lfs update --force
-          # Configure Git to skip hooks in CI
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
-
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -236,27 +163,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          set -e
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             python3-pip python3-venv \
             libgl1-mesa-glx libglib2.0-0 \
             libcudnn8 libcudnn8-dev \
             nvidia-cuda-toolkit
-          python3 -m pip install --upgrade pip
-          python3 -m pip install poetry
+          python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
 
       - name: Verify CUDA setup
         run: |
-          echo "Checking CUDA setup..."
           nvidia-smi
           python3 -c 'import os, sys, cv2, numpy as np; print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES")); print("NVIDIA_VISIBLE_DEVICES:", os.environ.get("NVIDIA_VISIBLE_DEVICES")); try: img = cv2.imread("maps/carter_warehouse_navigation.png"); print("Image exists:", os.path.exists("maps/carter_warehouse_navigation.png")); print("Image size:", os.path.getsize("maps/carter_warehouse_navigation.png")); if img is None: print("Failed to read image with OpenCV"); sys.exit(1); print("Image shape:", img.shape); print("Image type:", img.dtype); except Exception as e: print("Error reading image:", str(e)); sys.exit(1)'
 
       - name: Run E2E tests
         run: |
-          set -e
           poetry run python scripts/generate_graph.py \
             --map-path maps/carter_warehouse_navigation.png \
             --graph-eval.active \
@@ -285,27 +208,6 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Setup Git and Git LFS
-        run: |
-          apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
-          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Configure Git LFS
-          git lfs install --local
-          # Remove existing pre-push hook if it exists
-          if [ -f .git/hooks/pre-push ]; then
-            rm .git/hooks/pre-push
-          fi
-          # Reinstall Git LFS hooks
-          git lfs update --force
-          # Configure Git to skip hooks in CI
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
-
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -313,12 +215,12 @@ jobs:
 
       - name: Build and test
         run: |
-          set -e
           cd docker || { echo "Missing docker directory"; exit 1; }
           docker compose build --no-cache
           docker compose up rest-api &
           sleep 10
           cd ../
+          python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
           poetry run python scripts/test_api_client.py \
@@ -327,5 +229,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: |
-          cd docker && docker compose down -v
+        run: cd docker && docker compose down -v
