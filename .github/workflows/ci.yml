@@ -120,12 +120,16 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Install Git
+      - name: Install Git and Git LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
           git lfs install
+          # Remove pre-push hook if it exists
+          if [ -f .git/hooks/pre-push ]; then
+            rm .git/hooks/pre-push
+          fi
 
       - uses: actions/checkout@v4
         with:
