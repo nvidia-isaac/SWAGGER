@@ -193,7 +193,11 @@ jobs:
         run: |
           set -e
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            python3-pip python3-venv \
+            libgl1-mesa-glx libglib2.0-0 \
+            libcudnn8 libcudnn8-dev \
+            nvidia-cuda-toolkit
           python3 -m pip install --upgrade pip
           python3 -m pip install poetry
           poetry env use python3.12
@@ -201,7 +205,9 @@ jobs:
 
       - name: Verify CUDA setup
         run: |
+          echo "Checking CUDA setup..."
           nvidia-smi
+          python3 -c 'import os, sys, cv2, numpy as np; print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES")); print("NVIDIA_VISIBLE_DEVICES:", os.environ.get("NVIDIA_VISIBLE_DEVICES")); try: img = cv2.imread("maps/carter_warehouse_navigation.png"); print("Image exists:", os.path.exists("maps/carter_warehouse_navigation.png")); print("Image size:", os.path.getsize("maps/carter_warehouse_navigation.png")); if img is None: print("Failed to read image with OpenCV"); sys.exit(1); print("Image shape:", img.shape); print("Image type:", img.dtype); except Exception as e: print("Error reading image:", str(e)); sys.exit(1)'
 
       - name: Run E2E tests
         run: |
