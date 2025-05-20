@@ -28,12 +28,10 @@ jobs:
     name: Setup Git and LFS
     runs-on: self-hosted
     container:
-      image: python:3.12-slim
+      image: python:3.12-slim-bullseye
     steps:
-      - name: Install Git and LFS
+      - name: Configure Git and LFS
         run: |
-          apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
           git lfs install --local
           if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
@@ -52,7 +50,7 @@ jobs:
     needs: setup-git
     runs-on: self-hosted
     container:
-      image: python:3.12-slim
+      image: python:3.12-slim-bullseye
     steps:
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -80,7 +78,7 @@ jobs:
     needs: pre-commit
     runs-on: self-hosted
     container:
-      image: python:3.12-slim
+      image: python:3.12-slim-bullseye
     steps:
       - name: Cache pip packages
         uses: actions/cache@v4
