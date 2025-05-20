@@ -30,17 +30,22 @@ jobs:
     container:
       image: python:3.12-slim
     steps:
-      - name: Install Git
+      - name: Setup Git and LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git lfs install
+          git lfs install --force
+          mkdir -p .git/hooks
+          rm -f .git/hooks/pre-push
+          rm -f .git/hooks/post-checkout
+          git config --global core.hooksPath /dev/null
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           lfs: true
+          fetch-depth: 0
 
       - name: Cache Python packages
         uses: actions/cache@v4
@@ -53,8 +58,6 @@ jobs:
       - name: Install dependencies
         run: |
           set -e
-          apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           python3 -m pip install --upgrade pip
           python3 -m pip install pre-commit
           pre-commit --version
@@ -77,7 +80,7 @@ jobs:
     container:
       image: python:3.12-slim
     steps:
-      - name: Install Git
+      - name: Setup Git and LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
@@ -100,7 +103,6 @@ jobs:
       - name: Install dependencies
         run: |
           set -e
-          apt-get update && apt-get install -y --no-install-recommends git
           python3 -m pip install --upgrade pip
           python3 -m pip install poetry
           poetry env use python3.12
@@ -120,21 +122,16 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Install Git and Git LFS
+      - name: Setup Git and LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git lfs install --force
-          git config --global lfs.allowincompletepush true
-          git config --global lfs.concurrenttransfers 8
-          git config --global lfs.batch true
-          git config --global lfs.verify false
+          git lfs install
 
       - uses: actions/checkout@v4
         with:
           lfs: true
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -164,9 +161,9 @@ jobs:
           mkdir -p test-results
           poetry run python -m unittest discover -p "test_*.py" -v > test-results/unit-tests.txt
           # Convert unittest output to JUnit XML format
-          poetry run python -c "import xml.etree.ElementTree as ET, re; root = ET.Element('testsuites'); suite = ET.SubElement(root, 'testsuite', name='unit-tests'); [suite.append(ET.SubElement(suite, 'testcase', classname=m.group(2), name=m.group(1))) if m.group(3) == 'ok' else suite.append(ET.SubElement(suite, 'testcase', classname=m.group(2), name=m.group(1)).append(ET.SubElement(suite, 'failure', message=f'Test {m.group(1)} in {m.group(2)} {m.group(3).lower()}ed'))) for m in re.finditer(r'test_(\w+) \((.*?)\) \.\.\. (ok|FAIL|ERROR)', open('test-results/unit-tests.txt').read())]; ET.ElementTree(root).write('test-results/unit-tests.xml', encoding='utf-8', xml_declaration=True)"
+          poetry run python -c 'import xml.etree.ElementTree as ET, re; root = ET.Element("testsuites"); suite = ET.SubElement(root, "testsuite", name="unit-tests"); [suite.append(ET.SubElement(suite, "testcase", classname=m.group(2), name=m.group(1))) if m.group(3) == "ok" else suite.append(ET.SubElement(suite, "testcase", classname=m.group(2), name=m.group(1)).append(ET.SubElement(suite, "failure", message=f"Test {m.group(1)} in {m.group(2)} {m.group(3).lower()}ed"))) for m in re.finditer(r"test_(\w+) \((.*?)\) \.\.\. (ok|FAIL|ERROR)", open("test-results/unit-tests.txt").read())]; ET.ElementTree(root).write("test-results/unit-tests.xml", encoding="utf-8", xml_declaration=True)'
 
-      - name: Upload test resul ts
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -185,7 +182,7 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Install Git
+      - name: Setup Git and LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
@@ -252,7 +249,7 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
-      - name: Install Git
+      - name: Setup Git and LFS
         run: |
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
