@@ -24,34 +24,23 @@ env:
   PYTHONPATH: ${{ github.workspace }}
 
 jobs:
-  setup-git:
-    name: Setup Git and LFS
+  pre-commit:
+    name: Pre-commit Checks
     runs-on: self-hosted
     container:
       image: python:3.12-slim-bullseye
     steps:
-      - name: Configure Git and LFS
+      - name: Install Git
         run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git lfs install --local
-          if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
-          git lfs update --force
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          lfs: true
           fetch-depth: 0
 
-  pre-commit:
-    name: Pre-commit Checks
-    needs: setup-git
-    runs-on: self-hosted
-    container:
-      image: python:3.12-slim-bullseye
-    steps:
       - name: Cache Python packages
         uses: actions/cache@v4
         with:
@@ -80,6 +69,15 @@ jobs:
     container:
       image: python:3.12-slim-bullseye
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
@@ -107,6 +105,15 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
+      - name: Install Git
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -154,6 +161,22 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
+      - name: Install Git and LFS
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
+          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
+          git lfs install --local
+          if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
+          git lfs update --force
+          git config --global core.hooksPath /tmp/git-hooks
+          mkdir -p /tmp/git-hooks
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -206,6 +229,22 @@ jobs:
       image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
+      - name: Install Git and LFS
+        run: |
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
+          git config --global --add safe.directory /__w/SWAGGER/SWAGGER
+          git lfs install --local
+          if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
+          git lfs update --force
+          git config --global core.hooksPath /tmp/git-hooks
+          mkdir -p /tmp/git-hooks
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
