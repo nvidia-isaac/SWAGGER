@@ -176,8 +176,9 @@ jobs:
       - name: Install Git
         run: |
           apt-get update -y
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
+          git lfs install
 
       - uses: actions/checkout@v4
         with:
