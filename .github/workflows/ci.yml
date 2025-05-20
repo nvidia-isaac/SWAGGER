@@ -180,6 +180,8 @@ jobs:
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
 
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -199,7 +201,6 @@ jobs:
       - name: Verify CUDA setup
         run: |
           nvidia-smi
-          python3 -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA device count:', torch.cuda.device_count()); print('CUDA device name:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None')"
 
       - name: Run E2E tests
         run: |
