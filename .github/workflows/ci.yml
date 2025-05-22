@@ -197,8 +197,7 @@ jobs:
             python3-pip python3-venv \
             libgl1-mesa-glx libglib2.0-0 \
             libcudnn8 libcudnn8-dev \
-            nvidia-cuda-toolkit \
-            file
+            nvidia-cuda-toolkit
           python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
@@ -206,13 +205,8 @@ jobs:
       - name: Verify CUDA setup
         run: |
           # Verify NVIDIA drivers and CUDA
-          nvidia-smi
           nvcc --version
-          # Verify CUDA device is available using nvidia-smi
           nvidia-smi --query-gpu=gpu_name,driver_version,memory.total --format=csv,noheader
-          # Verify image file
-          ls -l maps/carter_warehouse_navigation.png
-          echo "Image size: $(stat -c %s maps/carter_warehouse_navigation.png) bytes"
 
       - name: Run E2E tests
         run: |
@@ -238,7 +232,7 @@ jobs:
     runs-on: self-hosted
     env:
       CUDA_VISIBLE_DEVICES: all
-      DOCKER_HOST: tcp://docker:2375
+      DOCKER_HOST: unix:///var/run/docker.sock
       DOCKER_TLS_CERTDIR: ""
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
@@ -262,10 +256,34 @@ jobs:
         with:
           lfs: true
 
+      - name: Pull LFS files
+        run: |
+          git lfs pull
+          git lfs ls-files
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            python3-pip python3-venv \
+            libgl1-mesa-glx libglib2.0-0 \
+            libcudnn8 libcudnn8-dev \
+            nvidia-cuda-toolkit
+          python3 -m pip install --upgrade pip poetry
+          poetry env use python3.12
+          poetry install
+
+      - name: Verify Docker setup
+        run: |
+          # Verify Docker daemon is accessible
+          docker info
+          # Verify Docker Compose is available
+          docker compose version
 
       - name: Build and test
         run: |
@@ -274,12 +292,9 @@ jobs:
           docker compose up rest-api &
           sleep 10
           cd ../
-          python3 -m pip install --upgrade pip poetry
-          poetry env use python3.12
-          poetry install
           poetry run python scripts/test_api_client.py \
             --map_path maps/carter_warehouse_navigation.png \
-            --host docker
+            --host localhost
 
       - name: Cleanup
         if: always()
