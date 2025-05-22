@@ -200,7 +200,6 @@ jobs:
       - name: Verify CUDA setup
         run: |
           nvidia-smi
-          python3 -c 'import os, sys, cv2, numpy as np; print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES")); print("NVIDIA_VISIBLE_DEVICES:", os.environ.get("NVIDIA_VISIBLE_DEVICES")); try: img = cv2.imread("maps/carter_warehouse_navigation.png"); print("Image exists:", os.path.exists("maps/carter_warehouse_navigation.png")); print("Image size:", os.path.getsize("maps/carter_warehouse_navigation.png")); if img is None: print("Failed to read image with OpenCV"); sys.exit(1); print("Image shape:", img.shape); print("Image type:", img.dtype); except Exception as e: print("Error reading image:", str(e)); sys.exit(1)'
 
       - name: Run E2E tests
         run: |
