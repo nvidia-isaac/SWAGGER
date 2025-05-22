@@ -57,10 +57,6 @@ jobs:
 
       - name: Run pre-commit
         run: |
-          echo "Current directory: $(pwd)"
-          ls -la
-          git status
-          git log -1
           pre-commit run --all-files
     timeout-minutes: 60
 
@@ -86,8 +82,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: poetry-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: poetry-pip-
+          key: poetry-pip-bullseye-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: poetry-pip-bullseye-
 
       - name: Install dependencies
         run: |
@@ -106,7 +102,7 @@ jobs:
     env:
       CUDA_VISIBLE_DEVICES: all
     container:
-      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
       - name: Install Git
@@ -131,7 +127,8 @@ jobs:
           path: |
             ~/.cache/pip
             venv/
-          key: unit-tests-${{ hashFiles('**/requirements.txt') }}
+          key: unit-tests-cuda-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: unit-tests-cuda-
 
       - name: Install dependencies
         run: |
@@ -164,7 +161,7 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
       NVIDIA_VISIBLE_DEVICES: all
     container:
-      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
       - name: Install Git and LFS
@@ -229,7 +226,7 @@ jobs:
       DOCKER_HOST: tcp://docker:2375
       DOCKER_TLS_CERTDIR: ""
     container:
-      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998
     steps:
       - name: Install Git and LFS
