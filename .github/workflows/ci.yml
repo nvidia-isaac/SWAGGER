@@ -167,8 +167,11 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git lfs install --local
+          # Configure Git LFS
+          git lfs install --system
           git lfs update --force
+          # Verify Git LFS installation
+          git lfs version
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -232,8 +235,11 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          git lfs install --local
+          # Configure Git LFS
+          git lfs install --system
           git lfs update --force
+          # Verify Git LFS installation
+          git lfs version
 
       - name: Checkout code
         uses: actions/checkout@v4
