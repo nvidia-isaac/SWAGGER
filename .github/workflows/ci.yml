@@ -99,6 +99,8 @@ jobs:
     runs-on: self-hosted
     env:
       CUDA_VISIBLE_DEVICES: all
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998
@@ -113,6 +115,12 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Verify CUDA setup
+        run: |
+          # Verify NVIDIA drivers and CUDA
+          nvcc --version
+          nvidia-smi --query-gpu=gpu_name,driver_version,memory.total --format=csv,noheader
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -132,7 +140,10 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            python3-pip python3-venv libgl1-mesa-glx libglib2.0-0
+            python3-pip python3-venv \
+            libgl1-mesa-glx libglib2.0-0 \
+            libcudnn8 libcudnn8-dev \
+            nvidia-cuda-toolkit
           python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
@@ -158,6 +169,7 @@ jobs:
     env:
       CUDA_VISIBLE_DEVICES: all
       NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998
@@ -202,18 +214,16 @@ jobs:
           poetry env use python3.12
           poetry install
 
-      - name: Verify CUDA setup
-        run: |
-          # Verify NVIDIA drivers and CUDA
-          nvcc --version
-          nvidia-smi --query-gpu=gpu_name,driver_version,memory.total --format=csv,noheader
-
       - name: Run E2E tests
         run: |
+          # Set CUDA device order
+          export CUDA_DEVICE_ORDER=PCI_BUS_ID
+          # Run tests with explicit CUDA device
           poetry run python scripts/generate_graph.py \
             --map-path maps/carter_warehouse_navigation.png \
             --graph-eval.active \
-            --perf-eval.active
+            --perf-eval.active \
+            --cuda-device 0
           poetry run python scripts/evaluate_graph.py \
             --graph-path graphs/graph.gml \
             --map-path maps/carter_warehouse_navigation.png \
@@ -232,6 +242,8 @@ jobs:
     runs-on: self-hosted
     env:
       CUDA_VISIBLE_DEVICES: all
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
       DOCKER_HOST: unix:///var/run/docker.sock
       DOCKER_TLS_CERTDIR: ""
     container:
@@ -285,27 +297,31 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-          # Verify Docker installation
-          docker --version
-          docker compose version
           python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
 
-      - name: Verify Docker setup
+      - name: Verify Docker and CUDA setup
         run: |
-          # Verify Docker daemon is accessible
+          # Verify Docker setup
           docker info
-          # Verify Docker Compose is available
           docker compose version
+          # Verify CUDA setup
+          nvidia-smi
+          nvcc --version
 
       - name: Build and test
         run: |
           cd docker || { echo "Missing docker directory"; exit 1; }
-          docker compose build --no-cache
-          docker compose up rest-api &
+          # Build with GPU support
+          DOCKER_BUILDKIT=1 docker compose build --no-cache
+          # Run with GPU support
+          docker compose up -d rest-api
           sleep 10
           cd ../
+          # Verify CUDA is available in the container
+          docker exec rest-api nvidia-smi
+          # Run tests
           poetry run python scripts/test_api_client.py \
             --map_path maps/carter_warehouse_navigation.png \
             --host localhost
