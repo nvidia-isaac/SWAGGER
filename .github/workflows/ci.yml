@@ -35,9 +35,8 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Disable Git LFS hooks
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
+          # Disable Git hooks completely
+          git config --global core.hooksPath /dev/null
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,9 +76,8 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Disable Git LFS hooks
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
+          # Disable Git hooks completely
+          git config --global core.hooksPath /dev/null
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -116,9 +114,8 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Disable Git LFS hooks
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
+          # Disable Git hooks completely
+          git config --global core.hooksPath /dev/null
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -176,10 +173,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
           git lfs install --local
-          if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
           git lfs update --force
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -244,10 +238,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
           git lfs install --local
-          if [ -f .git/hooks/pre-push ]; then rm .git/hooks/pre-push; fi
           git lfs update --force
-          git config --global core.hooksPath /tmp/git-hooks
-          mkdir -p /tmp/git-hooks
 
       - name: Checkout code
         uses: actions/checkout@v4
