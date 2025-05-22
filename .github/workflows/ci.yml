@@ -289,7 +289,7 @@ jobs:
             python3-pip python3-venv \
             libgl1-mesa-glx libglib2.0-0 \
             libcudnn8 libcudnn8-dev \
-            nvidia-cuda-toolkit
+            nvidia-cuda-toolkit curl ca-certificates gnupg
           # Add Docker's official GPG key
           install -m 0755 -d /etc/apt/keyrings
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
