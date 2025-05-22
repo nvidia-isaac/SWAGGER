@@ -333,7 +333,7 @@ jobs:
           sleep 10
           cd ../
           # Verify CUDA is available in the container
-          docker exec rest-api nvidia-smi
+          docker exec docker-rest-api-1 nvidia-smi
           # Run tests
           poetry run python scripts/test_api_client.py \
             --map_path maps/carter_warehouse_navigation.png \
