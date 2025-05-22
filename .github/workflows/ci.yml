@@ -167,8 +167,8 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Remove any existing pre-push hook
-          rm -f .git/hooks/pre-push
+          # Remove any existing hooks
+          rm -f .git/hooks/*
           # Configure Git LFS
           git lfs install --system
           git lfs update --force
@@ -237,8 +237,8 @@ jobs:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs
           git config --global --add safe.directory /__w/SWAGGER/SWAGGER
-          # Remove any existing pre-push hook
-          rm -f .git/hooks/pre-push
+          # Remove any existing hooks
+          rm -f .git/hooks/*
           # Configure Git LFS
           git lfs install --system
           git lfs update --force
