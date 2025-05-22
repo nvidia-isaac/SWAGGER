@@ -48,7 +48,7 @@ jobs:
         with:
           path: ~/.cache/pip
           key: precommit-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: precommit-
+          restore-keys: precommit
 
       - name: Install dependencies
         run: |
@@ -78,18 +78,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: poetry-pip-bullseye-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: poetry-pip-bullseye-
+      - name: Clear Poetry cache
+        run: |
+          rm -rf ~/.cache/pypoetry
+          rm -rf ~/.cache/pip
 
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
-          poetry install
+          poetry install --no-cache
 
       - name: Run Poetry check
         run: poetry check
