@@ -103,18 +103,7 @@ jobs:
       NVIDIA_DRIVER_CAPABILITIES: all
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
-      options: |
-        --privileged
-        --gpus all
-        --group-add 998
-        --device /dev/nvidia0:/dev/nvidia0
-        --device /dev/nvidiactl:/dev/nvidiactl
-        --device /dev/nvidia-modeset:/dev/nvidia-modeset
-        --device /dev/nvidia-uvm:/dev/nvidia-uvm
-        --device /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-        -v /usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu/nvidia
-        -v /usr/bin/nvidia-smi:/usr/bin/nvidia-smi
-        -v /usr/bin/nvcc:/usr/bin/nvcc
+      options: --privileged --gpus all --group-add 998 --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
     steps:
       - name: Install Git
         run: |
@@ -183,18 +172,7 @@ jobs:
       NVIDIA_DRIVER_CAPABILITIES: all
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
-      options: |
-        --privileged
-        --gpus all
-        --group-add 998
-        --device /dev/nvidia0:/dev/nvidia0
-        --device /dev/nvidiactl:/dev/nvidiactl
-        --device /dev/nvidia-modeset:/dev/nvidia-modeset
-        --device /dev/nvidia-uvm:/dev/nvidia-uvm
-        --device /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-        -v /usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu/nvidia
-        -v /usr/bin/nvidia-smi:/usr/bin/nvidia-smi
-        -v /usr/bin/nvcc:/usr/bin/nvcc
+      options: --privileged --gpus all --group-add 998 --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
     steps:
       - name: Install Git and LFS
         run: |
@@ -270,18 +248,7 @@ jobs:
       DOCKER_TLS_CERTDIR: ""
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
-      options: |
-        --privileged
-        --gpus all
-        --group-add 998
-        --device /dev/nvidia0:/dev/nvidia0
-        --device /dev/nvidiactl:/dev/nvidiactl
-        --device /dev/nvidia-modeset:/dev/nvidia-modeset
-        --device /dev/nvidia-uvm:/dev/nvidia-uvm
-        --device /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-        -v /usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu/nvidia
-        -v /usr/bin/nvidia-smi:/usr/bin/nvidia-smi
-        -v /usr/bin/nvcc:/usr/bin/nvcc
+      options: --privileged --gpus all --group-add 998 --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
     steps:
       - name: Install Git and LFS
         run: |
@@ -342,13 +309,17 @@ jobs:
           # Verify CUDA setup
           nvidia-smi
           nvcc --version
+          # Verify NVIDIA runtime
+          ldconfig -p | grep nvidia
+          # Verify CUDA libraries
+          ldconfig -p | grep cuda
 
       - name: Build and test
         run: |
           cd docker || { echo "Missing docker directory"; exit 1; }
           # Build with GPU support
           DOCKER_BUILDKIT=1 docker compose build --no-cache
-          # Run with GPU support
+          # Run with GPU support and NVIDIA runtime
           docker compose up -d rest-api
           sleep 10
           cd ../
