@@ -197,7 +197,8 @@ jobs:
             python3-pip python3-venv \
             libgl1-mesa-glx libglib2.0-0 \
             libcudnn8 libcudnn8-dev \
-            nvidia-cuda-toolkit
+            nvidia-cuda-toolkit \
+            file
           python3 -m pip install --upgrade pip poetry
           poetry env use python3.12
           poetry install
@@ -211,7 +212,7 @@ jobs:
           nvidia-smi --query-gpu=gpu_name,driver_version,memory.total --format=csv,noheader
           # Verify image file
           ls -l maps/carter_warehouse_navigation.png
-          file maps/carter_warehouse_navigation.png
+          echo "Image size: $(stat -c %s maps/carter_warehouse_navigation.png) bytes"
 
       - name: Verify PyTorch CUDA
         run: |
