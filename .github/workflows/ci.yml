@@ -222,12 +222,10 @@ jobs:
         run: |
           # Set CUDA device order
           export CUDA_DEVICE_ORDER=PCI_BUS_ID
-          # Run tests with explicit CUDA device
           poetry run python scripts/generate_graph.py \
             --map-path maps/carter_warehouse_navigation.png \
             --graph-eval.active \
-            --perf-eval.active \
-            --cuda-device 0
+            --perf-eval.active
           poetry run python scripts/evaluate_graph.py \
             --graph-path graphs/graph.gml \
             --map-path maps/carter_warehouse_navigation.png \
