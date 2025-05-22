@@ -214,10 +214,6 @@ jobs:
           ls -l maps/carter_warehouse_navigation.png
           echo "Image size: $(stat -c %s maps/carter_warehouse_navigation.png) bytes"
 
-      - name: Verify PyTorch CUDA
-        run: |
-          poetry run python -c 'import torch; print("CUDA available:", torch.cuda.is_available()); print("CUDA device count:", torch.cuda.device_count()); print("CUDA device name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No CUDA device")'
-
       - name: Run E2E tests
         run: |
           poetry run python scripts/generate_graph.py \
