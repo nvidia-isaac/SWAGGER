@@ -101,6 +101,8 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
+      CUDA_HOME: /usr/local/cuda
+      LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998 --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
@@ -170,6 +172,8 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
+      CUDA_HOME: /usr/local/cuda
+      LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
     container:
       image: nvidia/cuda:12.6.0-devel-ubuntu22.04
       options: --privileged --gpus all --group-add 998 --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
@@ -244,6 +248,8 @@ jobs:
       CUDA_VISIBLE_DEVICES: all
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
+      CUDA_HOME: /usr/local/cuda
+      LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
       DOCKER_HOST: unix:///var/run/docker.sock
       DOCKER_TLS_CERTDIR: ""
     container:
@@ -285,8 +291,7 @@ jobs:
             python3-pip python3-venv \
             libgl1-mesa-glx libglib2.0-0 \
             libcudnn8 libcudnn8-dev \
-            nvidia-cuda-toolkit \
-            ca-certificates curl gnupg
+            nvidia-cuda-toolkit
           # Add Docker's official GPG key
           install -m 0755 -d /etc/apt/keyrings
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -313,6 +318,12 @@ jobs:
           ldconfig -p | grep nvidia
           # Verify CUDA libraries
           ldconfig -p | grep cuda
+          # Verify CUDA environment
+          echo "CUDA_HOME: $CUDA_HOME"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+          ls -l $CUDA_HOME/lib64/libcuda*
+          # Verify CUDA device
+          python3 -c 'import os; print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES")); print("NVIDIA_VISIBLE_DEVICES:", os.environ.get("NVIDIA_VISIBLE_DEVICES")); print("NVIDIA_DRIVER_CAPABILITIES:", os.environ.get("NVIDIA_DRIVER_CAPABILITIES"))'
 
       - name: Build and test
         run: |
