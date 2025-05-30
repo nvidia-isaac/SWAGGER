@@ -33,6 +33,7 @@ COPY swagger swagger
 COPY scripts scripts
 COPY maps maps
 COPY LICENSE LICENSE
+COPY README.md README.md
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \

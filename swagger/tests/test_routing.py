@@ -117,6 +117,45 @@ class TestFindRoute(unittest.TestCase):
         # Check that no route was found
         self.assertEqual(len(route), 0, "Route found when none should be possible")
 
+    def test_shortcut_distance(self):
+        """Test the case where a shortcut distance is provided and the route is found."""
+
+        # Create a map with a wall dividing it
+        map_size = 100
+        grid_map = np.ones((map_size, map_size), dtype=np.uint8) * 255
+
+        # Add a wall across the entire map
+        grid_map[0:100, 50:52] = 0
+
+        # Create the waypoint graph generator and build the graph
+        wpg = WaypointGraphGenerator(config=self.config)
+        wpg.build_graph_from_grid_map(
+            image=grid_map, resolution=self.resolution, safety_distance=self.safety_distance, occupancy_threshold=127
+        )
+
+        # Define start and goal points that are close to each other
+        start_point = Point(x=2.0, y=2.0, z=0.0)  # Top-left
+        goal_point = Point(x=2.0, y=4.0, z=0.0)  # Top-right
+
+        # Find a route
+        route = wpg.find_route(start_point, goal_point, shortcut_distance=3.0)
+
+        # Check that the route is the start and goal points
+        self.assertEqual(len(route), 2, "Route should be the start and goal points")
+        self.assertEqual(route[0], start_point)
+        self.assertEqual(route[1], goal_point)
+
+        # Change the shortcut distance to 0.0 and check that the route is found
+        route = wpg.find_route(start_point, goal_point, shortcut_distance=0.0)
+        self.assertGreater(len(route), 0, "Route should contain more than 2 points")
+
+        # Straight line between start and goal are now colliding with the obstacle
+        start_point = Point(x=4.0, y=5.0, z=0.0)  # Left side
+        goal_point = Point(x=5.0, y=5.0, z=0.0)  # Right side
+
+        route = wpg.find_route(start_point, goal_point, shortcut_distance=2.0)
+        self.assertEqual(len(route), 0, "Route should not be found")
+
     def _calculate_path_length(self, route: list[Point]) -> float:
         """Calculate the total length of a path."""
         total_length = 0.0

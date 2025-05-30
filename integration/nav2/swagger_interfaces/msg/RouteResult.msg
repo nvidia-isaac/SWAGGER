@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .models import Point  # noqa
-from .waypoint_graph_generator import (  # noqa
-    WaypointGraphGenerator,
-    WaypointGraphGeneratorConfig,
-)
+nav_msgs/Path path
+uint32 route_id # For checking correspondence between request and response
+bool success

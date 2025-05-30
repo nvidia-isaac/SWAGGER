@@ -224,8 +224,19 @@ class WaypointGraphGenerator:
         world_n2 = self._graph.nodes[n2]["world"]
         return np.linalg.norm([world_n1[0] - world_n2[0], world_n1[1] - world_n2[1]])
 
-    def find_route(self, start: Point, goal: Point) -> list[Point]:
-        """Find a route between two points in the graph."""
+    def find_route(self, start: Point, goal: Point, shortcut_distance: float = 0.0) -> list[Point]:
+        """Find a route between two points in the graph. If the distance between the start and goal is less than
+        shortcut_distance, we check if the line between them is collision free and return the start and goal points
+        if it is. Otherwise, we use A* to find a route on the graph.
+        """
+
+        distance = np.linalg.norm([start.x - goal.x, start.y - goal.y])
+        if distance < shortcut_distance:
+            start_pixel = self._world_to_pixel(start)
+            goal_pixel = self._world_to_pixel(goal)
+            if not self._check_line_collision(start_pixel, goal_pixel):
+                return [start, goal]
+
         try:
             start_node, goal_node = self.get_node_ids([start, goal])
         except Exception as e:

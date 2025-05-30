@@ -19,11 +19,11 @@ See [algorithm overview](docs/algorithm.md) for an introduction of the method.
   - [Install Package](#install-package)
 - [Usage](#usage)
   - [Data Prepration](#data-preparation)
-  - [Tutorial and Examples](#tutorial-and-examples)
   - [Command Line Interface](#command-line-interface)
   - [Evaluation](#evaluation)
   - [REST API](#rest-api-service)
-  - [Containerized Environment](#containerized-environment)
+  - [Tutorial](#tutorial)
+  - [Integration examples](integration/README.md)
 - [Development](#development)
   - [Testing](#testing)
   - [Linting and Formatting](#linting-and-formatting)
@@ -35,37 +35,28 @@ See [algorithm overview](docs/algorithm.md) for an introduction of the method.
 
 ## Installation
 
-### Set up the Environment
+1. Clone the repository.
 
-Choose one of the following methods to set up your environment:
+    ```bash
+    git clone git@github.com:nvidia-isaac/SWAGGER.git
+    cd SWAGGER
+    git lfs pull
+    ```
 
-1. Using Conda
-```bash
-conda create -n swagger python=3.10
-conda activate swagger
-```
-
-2. Using Virtual Environment
-```bash
-python -m venv swagger
-source swagger/bin/activate
-```
-
-
-Clone the repository:
-
-
-
-```bash
-git clone git@github.com:nvidia-isaac/SWAGGER.git
-cd SWAGGER
-git lfs pull
-```
-
-### Install Package
+2. Install required packages.
 ```bash
 sudo apt update && sudo apt install -y libgl1-mesa-glx libglib2.0-0
-pip install -e .  # Install in development mode
+```
+
+3. Start a virtual environment.
+```bash
+python -m venv swagger-venv
+source swagger-venv/bin/activate
+```
+
+4. Install the SWAGGER library.
+```bash
+pip install -e .
 ```
 
 ## Usage
@@ -168,3 +159,4 @@ pip install pre-commit
 pre-commit install
 pre-commit run --all-files  # Run manually
 ```
+

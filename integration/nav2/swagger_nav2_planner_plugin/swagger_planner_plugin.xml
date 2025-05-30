@@ -1,0 +1,5 @@
+<library path="swagger_nav2_planner_plugin">
+	<class name="swagger_nav2_planner_plugin::SwaggerRoutePlanner" type="swagger_nav2_planner_plugin::SwaggerRoutePlanner" base_class_type="nav2_core::GlobalPlanner">
+		<description>SWAGGER Planner Plugin that uses the swagger service to find paths</description>
+	</class>
+</library>

@@ -1,83 +1,35 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+[tool.poetry]
+name = "swagger"
+version = "0.1.0"
+description = "SWAGGER: Sparse WAypoint Graph Generation for Efficient Routing"
+authors = []
+license = "Apache 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+colorlog = ">=6.9.0,<7.0.0"
+cucim-cu12 = ">=25.4.0,<26.0.0"
+fastapi = ">=0.115.12,<0.116.0"
+fastapi-versioning = ">=0.10.0,<0.11.0"
+h11 = ">=0.16.0"
+httpx = ">=0.28.1,<0.29.0"
+networkx = ">=3.4.2,<4.0.0"
+numba = ">=0.61.2,<0.62.0"
+numpy = ">=1.21.0,<2.0"
+numpydantic = ">=1.6.8,<2.0.0"
+opencv-python = ">=4.11.0.86,<5.0.0.0"
+psutil = ">=7.0.0,<8.0.0"
+pydantic = ">=2.11.4,<3.0.0"
+python-multipart = ">=0.0.20,<0.0.21"
+rtree = ">=1.4.0,<2.0.0"
+scikit-image = ">=0.25.2,<0.26.0"
+scipy = ">=1.15.3,<2.0.0"
+skan = ">=0.12.2,<0.13.0"
+tyro = ">=0.9.19,<0.10.0"
+uvicorn = ">=0.34.2,<0.35.0"
+
 
 [build-system]
-requires = ["setuptools>=70.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "swagger"
-version = "1.0.0"
-description = "A library for generating waypoint graphs from occupancy grid maps"
-readme = "README.md"
-requires-python = ">=3.10"
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3.10",
-]
-dependencies = [
-    "colorlog",
-    "cucim-cu12==25.2.0",
-    "fastapi==0.115.8",
-    "fastapi-versioning",
-    "h11>=0.16.0",
-    "httpx",
-    "networkx>=2.6.0",
-    "numba",
-    "numpy>=1.21.0,<2.0",
-    "numpydantic",
-    "opencv-python>=4.5.0",
-    "psutil",
-    "pydantic==2.10.6",
-    "python-multipart",
-    "rtree",
-    "scikit-image",
-    "scipy>=1.7.0",
-    "setuptools>=70.0",
-    "skan",
-    "tyro",
-    "uvicorn",
-]
-
-[tool.flake8]
-max-line-length = 120
-extend-ignore = ["E203", "W503", "D100", "D101", "D102", "D103", "D104", "D105", "D107"]
-exclude = [".git", "__pycache__", "build", "dist"]
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 120
-
-[tool.mypy]
-python_version = 3.12
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-
-[tool.setuptools.packages.find]
-exclude = ["results", "visualizations"]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
