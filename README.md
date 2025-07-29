@@ -27,6 +27,7 @@ See [algorithm overview](docs/algorithm.md) for an introduction of the method.
 - [Development](#development)
   - [Testing](#testing)
   - [Linting and Formatting](#linting-and-formatting)
+  - [Contributing](#contributing)
 
 
 ## System Requirements
@@ -159,3 +160,6 @@ pip install pre-commit
 pre-commit install
 pre-commit run --all-files  # Run manually
 ```
+
+### Contributing
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
