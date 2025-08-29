@@ -145,7 +145,6 @@ python scripts/test_api_client.py --map_path maps/carter_warehouse_navigation.pn
 
 This [tutorial](docs/tutorial.md) provides a comprehensive guide on how to use the SWAGGER library, including graph building, visualization, route finding, parameter tuning, and using both the Python API and REST API interfaces.
 
-
 ## Development
 
 ### Testing

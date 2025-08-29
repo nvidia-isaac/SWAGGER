@@ -171,15 +171,18 @@ class WaypointGraphGenerator:
         self._sin_rot = np.sin(rotation)
         self._node_map = None
 
-        self._distance_transform()
-
-        # Check if map is completely free
-        if not np.any(self._inflated_map):
+        # Check if map is completely free before performing distance transform
+        free_map = (self._original_map > self._occupancy_threshold).astype(np.uint8)
+        if np.all(free_map):
+            # Map is completely free (all values > threshold), create grid graph directly
             self._graph = self._create_grid_graph(
                 image.shape, grid_sample_distance=self._to_pixels_int(self._config.grid_sample_distance)
             )
             self._build_nearest_node_map(self._graph)
             return self._graph
+
+        # Map has obstacles, perform distance transform
+        self._distance_transform(free_map)
 
         # Build graph from the skeleton of the map
         if self._config.use_skeleton_graph:
@@ -268,13 +271,16 @@ class WaypointGraphGenerator:
             self._logger.error(f"No path found for start: {start} and goal: {goal}")
             return []
 
-    def _distance_transform(self):
+    def _distance_transform(self, free_map: np.ndarray):
         """Inflate obstacles in the occupancy grid using a distance transform."""
-        binary_map = (self._original_map > self._occupancy_threshold).astype(np.uint8)
+        # Pad the binary map by 1 pixel on all sides to avoid nodes being created on the edges of the map
+        free_map = np.pad(free_map, ((1, 1), (1, 1)), mode="constant", constant_values=0)
         # Compute the distance transform
-        self._dist_transform = cv2.distanceTransform(binary_map, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+        self._dist_transform = cv2.distanceTransform(free_map, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
         # Filter the distance transform by the robot's radius
         self._inflated_map = (self._dist_transform < self._safety_distance / self._resolution).astype(np.uint8)
+        # Unpad the distance transform to get the original map shape
+        self._inflated_map = self._inflated_map[1:-1, 1:-1]
 
     def _create_grid_graph(self, shape: tuple[int, int], grid_sample_distance: int) -> nx.Graph:
         """Create a grid graph for completely free maps with a margin from the borders."""
@@ -365,7 +371,12 @@ class WaypointGraphGenerator:
             return nx.Graph()
 
         self._logger.info("Building graph from skeleton...")
-        skeleton = skan.Skeleton(cp.asnumpy(skeleton_image))
+        # Convert to numpy if it's a cupy array, otherwise use as-is
+        if hasattr(skeleton_image, "get"):  # cupy array
+            skeleton_image_np = skeleton_image.get()
+        else:  # numpy array
+            skeleton_image_np = skeleton_image
+        skeleton = skan.Skeleton(skeleton_image_np)
         graph = nx.Graph()
 
         for i in range(skeleton.n_paths):
@@ -428,7 +439,7 @@ class WaypointGraphGenerator:
             distance_threshold: The threshold to identify areas with large distances.
         """
         # Initialize distance map with a large value
-        distance_map = np.full(self._original_map.shape, np.inf, dtype=np.float32)
+        distance_map = np.full(self._original_map.shape, np.inf, dtype=np.float64)
 
         # Set occupied pixels to 0
         distance_map[self._original_map <= self._occupancy_threshold] = 0
@@ -737,15 +748,21 @@ class WaypointGraphGenerator:
         queue = []
 
         for i, pixel in nodes:
-            node_map[pixel] = i
-            queue.append(pixel)
+            if 0 <= pixel < len(node_map):
+                node_map[pixel] = i
+                queue.append(pixel)
 
         for id in queue:
             for dd in directions:
                 nid = id + dd
-                if node_map[nid] == -1:
-                    node_map[nid] = node_map[id]
-                    queue.append(nid)
+                # Check bounds and handle edge cases
+                if 0 <= nid < len(node_map):
+                    # Check if we're not wrapping around rows incorrectly
+                    current_row = id // width
+                    new_row = nid // width
+                    if abs(new_row - current_row) <= 1 and node_map[nid] == -1:
+                        node_map[nid] = node_map[id]
+                        queue.append(nid)
 
     def _build_nearest_node_map(self, graph: nx.Graph):
         """Build a nearest node map from the graph for quick lookup."""
