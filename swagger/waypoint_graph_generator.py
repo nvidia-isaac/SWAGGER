@@ -58,7 +58,6 @@ class WaypointGraphGeneratorConfig:
     """
 
     # Graph generation parameters (in meters)
-    grid_sample_distance: float = 1.5  # Distance between samples along grid of an entirely free map
     skeleton_sample_distance: float = 1.5  # Distance between samples along skeleton image
     boundary_inflation_factor: float = 1.5  # Factor to inflate boundaries by safety distance (unitless)
     boundary_sample_distance: float = 2.5  # Distance between samples along contour
@@ -83,7 +82,6 @@ class WaypointGraphGeneratorConfig:
         """Validate configuration parameters after initialization."""
         # List of float parameters that must be positive
         distance_params = [
-            "grid_sample_distance",
             "skeleton_sample_distance",
             "boundary_sample_distance",
             "free_space_sampling_threshold",
@@ -176,7 +174,7 @@ class WaypointGraphGenerator:
         if np.all(free_map):
             # Map is completely free (all values > threshold), create grid graph directly
             self._graph = self._create_grid_graph(
-                image.shape, grid_sample_distance=self._to_pixels_int(self._config.grid_sample_distance)
+                image.shape, grid_sample_distance=self._to_pixels_int(self._config.free_space_sampling_threshold)
             )
             self._build_nearest_node_map(self._graph)
             return self._graph
@@ -300,7 +298,7 @@ class WaypointGraphGenerator:
         # Ensure minimum step size of 1 pixel
         # Choose step size for grid:
         # - Minimum of 1 pixel to ensure we can always create a grid
-        # - Maximum of `grid_sample_distance` pixels to avoid too sparse sampling in large maps
+        # - Maximum of `free_space_sampling_threshold` pixels to avoid too sparse sampling in large maps
         # - For medium maps, use half the smallest map dimension (after margins)
         #   to create a reasonable number of waypoints
         step = max(1, min(grid_sample_distance, min(height - 2 * margin, width - 2 * margin) // 2))
