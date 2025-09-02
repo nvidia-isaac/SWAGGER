@@ -124,7 +124,6 @@ The waypoint graph generator has several parameters that control how the graph i
 
 | Parameter | Default Value | Description |
 |-----------|---------------|-------------|
-| `grid_sample_distance` | 1.5 m | Maximum distance between waypoints when creating a grid graph on a completely free map. Lower values create denser graphs with more nodes. |
 | `skeleton_sample_distance` | 1.5 m | Maximum distance between waypoints when creating a skeleton graph. Lower values create denser graphs with more nodes. |
 | `boundary_inflation_factor` | 1.5 | Factor to inflate boundaries for contour detection. Higher values create larger margins around obstacles. This is unitless. |
 | `boundary_sample_distance` | 2.5 m | Distance between samples along obstacle contours. Lower values create more waypoints along boundaries. |
@@ -145,7 +144,7 @@ from swagger import WaypointGraphGenerator, WaypointGraphGeneratorConfig
 
 # Create a custom configuration
 config = WaypointGraphGeneratorConfig(
-    waypoint_interval=1.0,               # Distance between waypoints (in meters)
+    skeleton_sample_distance=1.0,        # Distance between skeleton waypoints (in meters)
     boundary_inflation_factor=2.0,       # Larger margins around obstacles
     boundary_sample_distance=1.5,        # Distance between boundary samples (in meters)
     free_space_sampling_threshold=2.0,   # Distance from obstacles for free space sampling (in meters)
