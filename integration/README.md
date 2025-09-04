@@ -9,7 +9,7 @@ We provide two example integrations for using SWAGGER for navigation. These are 
 
 These integrations are built as ROS2 applications and tested with [ROS2 Humble](https://docs.ros.org/en/humble/index.html).
 
-These integrations have been tested with [Isaac Sim 4.5](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html) as the underlying simulator. Refer to [the Workstation Installation section](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_workstation.html#workstation-installation) of the documentation for installing Isaac Sim on your machine.
+These integrations have been tested with [Isaac Sim 5.0](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html) as the underlying simulator. Refer to [the Workstation Installation section](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_workstation.html#workstation-installation) of the documentation for installing Isaac Sim on your machine.
 
 In the scenes we use, we use the [Nova Carter](https://docs.isaacsim.omniverse.nvidia.com/latest/assets/usd_assets_robots.html#id3) robot.
 We use a simple warehouse scene for all these integrations.
@@ -34,8 +34,8 @@ graph TD
 
 For navigation using localization with AMCL, we need to first enable 2D lidars in the scene using these steps
 
-1. Launch Isaac Sim 4.5 with the Isaac Sim selector. Select `isaacsim.ros2.bridge` for "ROS Bridge Extension" and **humble** for "Use Internal ROS2 Libraries".
-2. Open scene using these sequence: `Window` > `Examples` > `Robotics Examples`. Then on the bottom left select the `Robotics Examples` tab and navigate to `ROS2` > `Navigation`, then click on `Carter` and `Load Sample Scene`.
+1. Launch Isaac Sim with the Isaac Sim selector. Select `isaacsim.ros2.bridge` for "ROS Bridge Extension" and **humble** for "Use Internal ROS2 Libraries".
+2. Open scene using these sequence: `Window` > `Examples` > `Robotics Examples`. Then on the bottom left select the `Robotics Examples` tab and navigate to `ROS2` > `Navigation`, then click on `Nova Carter` and `Load Sample Scene`.
 3. Enable 2d lidar by clicking on the `enabled` radio button for the **render** products for both `front_2d_lidar_render_product` and `back_2d_lidar_render_product` 2D lidars. See the image below for reference. See the image below for reference.
 
     ![enable-lidars-screenshot](enable-2d-lidar-render-products.png "Enable 2D Lidars")

@@ -21,6 +21,7 @@
   <name>compass_swagger_navigator</name>
   <version>0.1.0</version>
   <description>ROS2 node for robot navigation, using COMPASS policy and SWAGGER for route generation</description>
+  <maintainer email="isaac-swagger-maintainers@nvidia.com">Isaac SWAGGER Maintainers</maintainer>
   <license>Apache 2.0</license>
 
   <depend>geometry_msgs</depend>
