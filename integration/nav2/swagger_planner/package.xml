@@ -21,6 +21,7 @@
   <name>swagger_planner</name>
   <version>0.1.0</version>
   <description>SWAGGER planner node</description>
+  <maintainer email="isaac-swagger-maintainers@nvidia.com">Isaac SWAGGER Maintainers</maintainer>
   <license>Apache 2.0</license>
 
   <depend>swagger_interfaces</depend>

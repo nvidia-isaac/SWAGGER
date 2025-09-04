@@ -4,6 +4,7 @@
   <name>swagger_nav2_planner_plugin</name>
   <version>0.1.0</version>
   <description>nav2 global planner plugin using waypoint graph</description>
+  <maintainer email="isaac-swagger-maintainers@nvidia.com">Isaac SWAGGER Maintainers</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>

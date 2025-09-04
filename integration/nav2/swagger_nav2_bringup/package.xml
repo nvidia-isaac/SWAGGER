@@ -21,6 +21,7 @@
   <name>swagger_nav2_bringup</name>
   <version>0.1.0</version>
   <description>Launch files and configurations for using nav2 with waypoint graph</description>
+  <maintainer email="isaac-swagger-maintainers@nvidia.com">Isaac SWAGGER Maintainers</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
