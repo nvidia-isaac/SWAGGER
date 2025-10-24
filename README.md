@@ -28,6 +28,7 @@ See [algorithm overview](docs/algorithm.md) for an introduction of the method.
   - [Testing](#testing)
   - [Linting and Formatting](#linting-and-formatting)
   - [Contributing](#contributing)
+- [Authors](#authors)
 
 
 ## System Requirements
@@ -162,3 +163,6 @@ pre-commit run --all-files  # Run manually
 
 ### Contributing
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
+
+## Authors
+Rushane Hua, Billy Okal, Benjamin Butin
