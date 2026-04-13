@@ -19,8 +19,93 @@ import networkx as nx
 
 from swagger.models import CsrGraph, Point
 
-
 def pixel_to_world(
+    row: float, col: float, resolution: float, x_offset: float, y_offset: float, cos_rot: float, sin_rot: float, image_shape: Tuple[int, int] = None
+) -> Point:
+    """
+    Convert pixel coordinates to world coordinates with the given transform.
+
+    Coordinate system mapping:
+    - In image frame: origin at top-left, x-axis points down (rows), y-axis points right (columns)
+    - In ROS world frame: origin at bottom-left, x-axis points right, y-axis points up
+    Args:
+        row: Row coordinate in image frame (down direction)
+        col: Column coordinate in image frame (right direction)
+        resolution: Meters per pixel in the map
+        x_offset: Translation in the x direction (meters)
+        y_offset: Translation in the y direction (meters). When using ROS coordinates,
+                 this should include the image height in meters (image_height * resolution)
+        cos_rot: Cosine of the rotation angle
+        sin_rot: Sine of the rotation angle
+
+    Returns:
+        Point object with world coordinates
+    """
+    # Convert from image coordinates to ROS world coordinates
+    # In ROS: origin at bottom-left, x right, y up
+    # In image: origin at top-left, row down, col right
+    H, W = image_shape
+    cx_m = W / 2.0
+    cy_m = H / 2.0
+
+    # --- interpret pixel coords (swapping row/col) ---
+    x_local = (col - cx_m) * resolution    # row = forward
+    y_local = -(row - cy_m) * resolution    # col = lateral
+
+    #x_fix = y_local
+    #y_fix = -x_local
+    x_fix = x_local
+    y_fix = y_local
+
+    # --- rotate 90° CW and mirror by swapping x/y + sign ---
+    x_rot = cos_rot * x_fix - sin_rot * y_fix
+    y_rot = sin_rot * x_fix + cos_rot * y_fix
+
+    x_world = x_rot + x_offset
+    y_world = y_rot + y_offset
+
+    return (x_world, y_world)
+
+def world_to_pixel(
+    point: Point, resolution: float, x_offset: float, y_offset: float, cos_rot: float, sin_rot: float, image_shape: Tuple[int, int] = None
+) -> Tuple[int, int]:
+    """
+    Inverse rigid-body transform: world → pixel coordinates.
+    """
+
+    # --- robust unpacking for both Point or tuple ---
+    if hasattr(point, "x") and hasattr(point, "y"):
+        x_world, y_world = point.x, point.y
+    else:
+        x_world, y_world = point
+
+    H, W = image_shape
+    cx_m = W / 2.0
+    cy_m = H / 2.0
+
+    final_x = x_world
+    final_y = y_world
+
+    # translate into local centered frame
+    x_local = final_x - x_offset
+    y_local = final_y - y_offset
+
+    # inverse rotate (undo 90° CW + mirror)
+    x_unrot = cos_rot * x_local + sin_rot * y_local
+    y_unrot = -sin_rot * x_local + cos_rot * y_local
+
+    #x_fix = -y_unrot
+    #y_fix = x_unrot
+    x_fix = x_unrot
+    y_fix = y_unrot
+
+    # swap back row/col semantics
+    col = (x_fix / resolution) + cx_m
+    row = -(y_fix / resolution) + cy_m
+
+    return int(round(row)), int(round(col))
+
+def pixel_to_world1(
     row: float, col: float, resolution: float, x_offset: float, y_offset: float, cos_rot: float, sin_rot: float
 ) -> Point:
     """
@@ -57,10 +142,10 @@ def pixel_to_world(
     x_world = x_rot + x_offset
     y_world = y_rot + y_offset
 
-    return Point(x=x_world, y=y_world, z=0.0)
+    #return Point(x=x_world, y=y_world, z=0.0)
+    return (x_world, y_world)
 
-
-def world_to_pixel(
+def world_to_pixel1(
     point: Point, resolution: float, x_offset: float, y_offset: float, cos_rot: float, sin_rot: float
 ) -> Tuple[int, int]:
     """
@@ -82,9 +167,14 @@ def world_to_pixel(
     Returns:
         Tuple of (row, column) pixel coordinates in image frame
     """
+    if isinstance(point, tuple):
+        x_w, y_w = point
+    else:
+        x_w, y_w = point.x, point.y
+
     # Remove translation (y_offset includes image height in meters)
-    x = point.x - x_offset
-    y = point.y - y_offset
+    x = x_w - x_offset
+    y = y_w - y_offset
 
     # Remove rotation (use negative angle)
     x_unrot = x * cos_rot + y * sin_rot
