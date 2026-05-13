@@ -26,7 +26,6 @@ from tf2_ros import Buffer, TransformException, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
 from swagger.models import Point as SWAGGERPoint
-from swagger.utils import pixel_to_world, world_to_pixel
 from swagger.waypoint_graph_generator import (
     WaypointGraphGenerator,
     WaypointGraphGeneratorConfig,
@@ -190,15 +189,7 @@ class RoutePlanner(Node):
         path_msg.header.stamp = self.get_clock().now().to_msg()
         path_msg.header.frame_id = self._route_frame_id
         for cell in route_cells:
-            point = pixel_to_world(
-                cell[0],
-                cell[1],
-                self.get_parameter("resolution").value,
-                self.get_parameter("x_offset").value,
-                self.get_parameter("y_offset").value,
-                self._cos_rot,
-                self._sin_rot,
-            )
+            point = self._swagger.pixel_to_world(cell[0], cell[1])
 
             pose = PoseStamped()
             pose.header = path_msg.header
@@ -212,22 +203,8 @@ class RoutePlanner(Node):
         # Use Bresenham's line algorithm to convert waypoints in world coordinates to cells in the occupancy grid
         route_cells = []
         for i in range(len(route_wps) - 1):
-            start_cell = world_to_pixel(
-                route_wps[i],
-                self.get_parameter("resolution").value,
-                self.get_parameter("x_offset").value,
-                self.get_parameter("y_offset").value,
-                self._cos_rot,
-                self._sin_rot,
-            )
-            end_cell = world_to_pixel(
-                route_wps[i + 1],
-                self.get_parameter("resolution").value,
-                self.get_parameter("x_offset").value,
-                self.get_parameter("y_offset").value,
-                self._cos_rot,
-                self._sin_rot,
-            )
+            start_cell = self._swagger.world_to_pixel(route_wps[i])
+            end_cell = self._swagger.world_to_pixel(route_wps[i + 1])
             route_cells.extend(waypoints_to_cells(start_cell[0], start_cell[1], end_cell[0], end_cell[1]))
         return route_cells
 

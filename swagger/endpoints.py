@@ -79,17 +79,27 @@ async def _load_map(map_file: fastapi.UploadFile, map_uri: str = None) -> bytes:
 
 async def _load_map_from_file(map_file: fastapi.UploadFile) -> bytes:
     """Load map from uploaded file and validate it's an image."""
-    if not mimetypes.guess_type(map_file.filename)[0].startswith("image/"):
+    content_type = map_file.content_type or ""
+    if not content_type.startswith("image/"):
+        content_type = mimetypes.guess_type(map_file.filename or "")[0]
+    if not content_type or not content_type.startswith("image/"):
         raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Map must be an image file.")
     return await map_file.read()
 
 
 def _load_map_from_uri(map_uri: str) -> bytes:
     """Load map from URI and validate it's an image."""
-    response = requests.get(url=map_uri, stream=True)
-    if not mimetypes.inited:
-        mimetypes.init()
-    content_type = mimetypes.guess_type(url=map_uri)[0]
+    try:
+        response = requests.get(url=map_uri, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail=f"Failed to load map URI: {exc}")
+
+    content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+    if not content_type:
+        if not mimetypes.inited:
+            mimetypes.init()
+        content_type = mimetypes.guess_type(url=map_uri)[0]
     if not content_type or not content_type.startswith("image/"):
         raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Map must be an image file.")
     return response.content
@@ -106,8 +116,16 @@ def _decode_image(contents: bytes, occupancy_threshold: int = None) -> np.ndarra
     if image_bytes.size == 0:
         raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Empty image.")
     image = cv2.imdecode(image_bytes, cv2.IMREAD_UNCHANGED)
+    if image is None:
+        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Invalid image.")
+    if image.dtype != np.uint8:
+        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Map image must be 8-bit.")
+    if len(image.shape) == 3 and image.shape[2] == 4:
+        return cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
     if len(image.shape) == 3:
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if len(image.shape) != 2:
+        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Map must be a grayscale image.")
     return image
 
 

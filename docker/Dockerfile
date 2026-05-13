@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Build stage
-FROM nvidia/cuda:12.5.1-devel-ubuntu22.04 AS builder
+FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS builder
 
 # Install build dependencies and create venv in one layer
 RUN apt-get update && \
@@ -41,7 +41,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     find /opt/venv -name __pycache__ -type d -exec rm -rf {} +
 
 # Create a stage for extracting only the essential CUDA headers
-FROM nvidia/cuda:12.5.1-devel-ubuntu22.04 AS cuda-minimal
+FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS cuda-minimal
 RUN mkdir -p /cuda-minimal/include && \
     cp -r /usr/local/cuda/include/* /cuda-minimal/include/ && \
     # Keep only essential CUDA dev libraries
@@ -50,7 +50,7 @@ RUN mkdir -p /cuda-minimal/include && \
     cp /usr/local/cuda/lib64/libnvrtc* /cuda-minimal/lib64/
 
 # Final stage - using runtime image
-FROM nvidia/cuda:12.5.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.9.1-runtime-ubuntu22.04
 
 # Install regular Python and other runtime dependencies
 RUN apt-get update && \

@@ -17,6 +17,7 @@ import copy
 import logging
 import os
 from dataclasses import dataclass, field
+from math import ceil
 from typing import Optional
 
 import cupy as cp
@@ -172,6 +173,12 @@ class WaypointGraphGenerator:
         # Check if map is completely free before performing distance transform
         free_map = (self._original_map > self._occupancy_threshold).astype(np.uint8)
         if np.all(free_map):
+            self._inflated_map = np.zeros_like(free_map, dtype=np.uint8)
+            margin = self._to_pixels_int(self._safety_distance)
+            self._inflated_map[:margin, :] = 1
+            self._inflated_map[-margin:, :] = 1
+            self._inflated_map[:, :margin] = 1
+            self._inflated_map[:, -margin:] = 1
             # Map is completely free (all values > threshold), create grid graph directly
             self._graph = self._create_grid_graph(
                 image.shape, grid_sample_distance=self._to_pixels_int(self._config.free_space_sampling_threshold)
@@ -230,13 +237,22 @@ class WaypointGraphGenerator:
         shortcut_distance, we check if the line between them is collision free and return the start and goal points
         if it is. Otherwise, we use A* to find a route on the graph.
         """
+        if self._graph is None:
+            raise RuntimeError("No graph has been built yet")
 
         distance = np.linalg.norm([start.x - goal.x, start.y - goal.y])
-        if distance < shortcut_distance:
-            start_pixel = self._world_to_pixel(start)
-            goal_pixel = self._world_to_pixel(goal)
-            if not self._check_line_collision(start_pixel, goal_pixel):
-                return [start, goal]
+        start_pixel = self._world_to_pixel(start)
+        goal_pixel = self._world_to_pixel(goal)
+
+        if not self._is_valid_point(*start_pixel):
+            self._logger.error(f"{start} Start is out of bounds or in inflated obstacle space")
+            return []
+        if not self._is_valid_point(*goal_pixel):
+            self._logger.error(f"{goal} Goal is out of bounds or in inflated obstacle space")
+            return []
+
+        if distance < shortcut_distance and not self._check_line_collision(start_pixel, goal_pixel):
+            return [start, goal]
 
         try:
             start_node, goal_node = self.get_node_ids([start, goal])
@@ -252,6 +268,14 @@ class WaypointGraphGenerator:
             return []
 
         try:
+            start_node_pixel = self._graph.nodes[start_node]["pixel"]
+            goal_node_pixel = self._graph.nodes[goal_node]["pixel"]
+            if self._check_line_collision(start_pixel, start_node_pixel) or self._check_line_collision(
+                goal_node_pixel, goal_pixel
+            ):
+                self._logger.error(f"Start or goal cannot connect to graph safely: {start} - {goal}")
+                return []
+
             route_nodes = nx.astar_path(self._graph, start_node, goal_node, heuristic=self._astar_heuristic)
             return (
                 [start]
@@ -286,7 +310,7 @@ class WaypointGraphGenerator:
         height, width = shape
 
         # Calculate margin based on robot radius and resolution
-        margin = int(self._safety_distance / self._resolution)
+        margin = self._to_pixels_int(self._safety_distance)
 
         # For very small maps, just create a single node
         if height <= 2 * margin or width <= 2 * margin:
@@ -404,8 +428,10 @@ class WaypointGraphGenerator:
             True if there is a collision, False otherwise
         """
         # Bresenham's line algorithm to get the pixels the line passes through
-        y0, x0 = p0
-        y1, x1 = p1
+        y0, x0 = (int(round(v)) for v in p0)
+        y1, x1 = (int(round(v)) for v in p1)
+        if not self._is_within_bounds(y0, x0) or not self._is_within_bounds(y1, x1):
+            return True
         dx = abs(x1 - x0)
         dy = abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
@@ -413,6 +439,8 @@ class WaypointGraphGenerator:
         err = dx - dy
 
         while True:
+            if not self._is_within_bounds(y0, x0):
+                return True
             if self._inflated_map[y0, x0]:
                 return True  # Return early if a collision is detected
             if (y0 == y1) and (x0 == x1):
@@ -664,6 +692,14 @@ class WaypointGraphGenerator:
             if not merged:
                 break  # Exit loop if no merges occurred in this iteration
 
+    def pixel_to_world(self, row: float, col: float) -> Point:
+        """Convert pixel coordinates to world coordinates with the graph's current transform."""
+        return self._pixel_to_world(row, col)
+
+    def world_to_pixel(self, point: Point) -> tuple[int, int]:
+        """Convert world coordinates to pixel coordinates with the graph's current transform."""
+        return self._world_to_pixel(point)
+
     def _pixel_to_world(self, row: float, col: float) -> Point:
         """Convert pixel coordinates to world coordinates with the current transform."""
         return pixel_to_world(row, col, self._resolution, self._x_offset, self._y_offset, self._cos_rot, self._sin_rot)
@@ -692,9 +728,10 @@ class WaypointGraphGenerator:
             src_pixel = self._graph.nodes[src]["pixel"]
             dst_pixel = self._graph.nodes[dst]["pixel"]
             lines.append([[src_pixel[1], src_pixel[0]], [dst_pixel[1], dst_pixel[0]]])
-        lines = np.array(lines)
-        edge_color = self._config.edge_color.to_tuple()
-        cv2.polylines(map_vis, lines, False, edge_color, 1)
+        if lines:
+            lines = np.array(lines)
+            edge_color = self._config.edge_color.to_tuple()
+            cv2.polylines(map_vis, lines, False, edge_color, 1)
 
         # Draw nodes in blue
         node_radius = 2
@@ -742,8 +779,9 @@ class WaypointGraphGenerator:
     @numba.njit
     def _flood_fill_numba(node_map, nodes, width):
         """Flood fill the node map with the node ids."""
-        directions = [-width, width, -1, 1]
+        directions = ((-1, 0), (1, 0), (0, -1), (0, 1))
         queue = []
+        height = len(node_map) // width
 
         for i, pixel in nodes:
             if 0 <= pixel < len(node_map):
@@ -751,14 +789,14 @@ class WaypointGraphGenerator:
                 queue.append(pixel)
 
         for id in queue:
-            for dd in directions:
-                nid = id + dd
-                # Check bounds and handle edge cases
-                if 0 <= nid < len(node_map):
-                    # Check if we're not wrapping around rows incorrectly
-                    current_row = id // width
-                    new_row = nid // width
-                    if abs(new_row - current_row) <= 1 and node_map[nid] == -1:
+            current_row = id // width
+            current_col = id % width
+            for dy, dx in directions:
+                new_row = current_row + dy
+                new_col = current_col + dx
+                if 0 <= new_row < height and 0 <= new_col < width:
+                    nid = new_row * width + new_col
+                    if node_map[nid] == -1:
                         node_map[nid] = node_map[id]
                         queue.append(nid)
 
@@ -768,12 +806,21 @@ class WaypointGraphGenerator:
 
         height, width = self._original_map.shape
         self._node_map = np.full((height, width), -1, dtype=np.int32)
-        self._node_map[self._original_map <= self._occupancy_threshold] = -2
+        self._node_map[self._inflated_map.astype(bool)] = -2
 
         if len(graph) == 0:  # Empty graph
             return
 
-        graph_pixels = np.array([(i, y * width + x) for i, (y, x) in graph.nodes(data="pixel")], dtype=np.int32)
+        graph_pixels = np.array(
+            [
+                (i, y * width + x)
+                for i, (y, x) in graph.nodes(data="pixel")
+                if self._is_within_bounds(y, x) and not self._inflated_map[y, x]
+            ],
+            dtype=np.int32,
+        )
+        if graph_pixels.size == 0:
+            return
         node_map = self._node_map.reshape(-1)
         WaypointGraphGenerator._flood_fill_numba(node_map, graph_pixels, width)
 
@@ -787,4 +834,4 @@ class WaypointGraphGenerator:
 
     def _to_pixels_int(self, meters: float) -> int:
         """Convert a distance from meters to pixels and round to integer."""
-        return int(self._to_pixels(meters))
+        return max(1, int(ceil(self._to_pixels(meters))))

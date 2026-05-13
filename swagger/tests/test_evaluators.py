@@ -114,6 +114,20 @@ class TestWaypointGraphEvaluator(unittest.TestCase):
         self.assertTrue(metrics["node_validity"])  # All nodes should be valid
         self.assertTrue(metrics["edge_length_validity"])  # All edges should be valid length
 
+    def test_validation_detects_colliding_edge(self):
+        """Test validation catches an edge crossing inflated obstacle space."""
+        graph = nx.Graph()
+        graph.add_node(0, world=(0.1, 0.2, 0.0), pixel=(4, 2))
+        graph.add_node(1, world=(0.2, 0.2, 0.0), pixel=(4, 4))
+        graph.add_edge(0, 1, weight=0.1)
+
+        evaluator = WaypointGraphEvaluator(
+            graph, self.occupancy_map, self.resolution, self.safety_distance, self.occupancy_threshold
+        )
+
+        metrics = evaluator.calculate_validation_metrics()
+        self.assertFalse(metrics["collision_free"])
+
     def test_empty_graph(self):
         """Test evaluator with empty graph."""
         empty_graph = nx.Graph()

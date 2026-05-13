@@ -1,5 +1,6 @@
 /*
 SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,12 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
 */
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -30,11 +33,11 @@ limitations under the License.
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "nav2_util/service_client.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
 
-#include "swagger_interfaces/msg/route_request.hpp"
-#include "swagger_interfaces/msg/route_result.hpp"
+#include "swagger_interfaces/srv/generate_route.hpp"
 
 namespace swagger_nav2_planner_plugin {
 
@@ -51,10 +54,8 @@ class SwaggerRoutePlanner : public nav2_core::GlobalPlanner {
   void activate() override;
   void deactivate() override;
   nav_msgs::msg::Path createPlan(
-      const geometry_msgs::msg::PoseStamped& start,
-      const geometry_msgs::msg::PoseStamped& goal) override;
-
-  void routeResultCallback(const swagger_interfaces::msg::RouteResult::SharedPtr msg);
+      const geometry_msgs::msg::PoseStamped& start, const geometry_msgs::msg::PoseStamped& goal,
+      std::function<bool()> cancel_checker) override;
 
  protected:
   std::shared_ptr<tf2_ros::Buffer> tf_;
@@ -62,11 +63,9 @@ class SwaggerRoutePlanner : public nav2_core::GlobalPlanner {
   std::string global_frame_, name_;
   std::string route_service_name_;
 
-  uint32_t route_id_{0};
-  nav_msgs::msg::Path global_path_;
-
-  rclcpp::Publisher<swagger_interfaces::msg::RouteRequest>::SharedPtr route_request_publisher_;
-  rclcpp::Subscription<swagger_interfaces::msg::RouteResult>::SharedPtr route_result_subscription_;
+  std::unique_ptr<nav2_util::ServiceClient<
+      swagger_interfaces::srv::GenerateRoute, nav2_util::LifecycleNode::SharedPtr>>
+      route_client_;
 };
 
 }  // namespace swagger_nav2_planner_plugin

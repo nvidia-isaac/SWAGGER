@@ -98,10 +98,11 @@ class TestWaypointGraphGenerator(unittest.TestCase):
         self.assertGreater(len(graph.edges), 0, "Free map should have edges")
 
         # Verify that nodes are positioned away from borders based on safety distance
-        margin = int(self.safety_distance / self.resolution)
+        margin = self.generator._to_pixels_int(self.safety_distance)
         for node_id, data in graph.nodes(data=True):
             pixel_coords = data["pixel"]
             y, x = pixel_coords
+            self.assertFalse(self.generator._inflated_map[y, x], f"Node at {(y, x)} should not be inflated")
 
             # Node should not be on or near the borders
             self.assertGreaterEqual(y, margin, f"Node at y={y} should be at least {margin} pixels from top border")
@@ -112,6 +113,27 @@ class TestWaypointGraphGenerator(unittest.TestCase):
             self.assertLess(
                 x, free_map.shape[1] - margin, f"Node at x={x} should be at least {margin} pixels from right border"
             )
+
+        node_ids = self.generator.get_node_ids([Point(x=0.25, y=0.25, z=0.0)])
+        self.assertEqual(len(node_ids), 1)
+
+    def test_fully_free_map_uses_ceiled_border_margin(self):
+        """Test free-map grid nodes are outside the same inflated margin used for route validation."""
+        free_map = np.full((20, 20), 255, dtype=np.uint8)
+        graph = self.generator.build_graph_from_grid_map(free_map, resolution=0.05, safety_distance=0.3)
+
+        for _, data in graph.nodes(data=True):
+            y, x = data["pixel"]
+            self.assertFalse(self.generator._inflated_map[y, x], f"Node at {(y, x)} should not be inflated")
+
+    def test_fully_free_map_rejects_border_margin_query(self):
+        """Test fully free maps still treat map boundaries as unsafe."""
+        free_map = np.full((20, 20), 255, dtype=np.uint8)
+        self.generator.build_graph_from_grid_map(free_map, self.resolution, self.safety_distance)
+
+        # World y includes the internal bottom-left transform shift. This point maps to row 0.
+        node_ids = self.generator.get_node_ids([Point(x=0.25, y=free_map.shape[0] * self.resolution, z=0.0)])
+        self.assertIsNone(node_ids[0])
 
     def test_get_node_ids(self):
         """Test finding nearest nodes to query points"""
@@ -497,14 +519,9 @@ class TestWaypointGraphGenerator(unittest.TestCase):
             rotation=rotation,
         )
 
-        # Create test points by transforming known free pixels to world coordinates
-        # Center of horizontal corridor
-        pixel_h = (10, 0)  # y, x coordinates in pixel space
-        world_h = self.generator._pixel_to_world(pixel_h[0], pixel_h[1])
-
-        # Center of vertical corridor
-        pixel_v = (0, 10)  # y, x coordinates in pixel space
-        world_v = self.generator._pixel_to_world(pixel_v[0], pixel_v[1])
+        # Create valid test points from known graph nodes so they are outside inflated obstacle space.
+        world_h = Point(x=graph.nodes[0]["world"][0], y=graph.nodes[0]["world"][1], z=0.0)
+        world_v = Point(x=graph.nodes[1]["world"][0], y=graph.nodes[1]["world"][1], z=0.0)
 
         # Point in obstacle
         pixel_obs = (0, 0)  # y, x coordinates in pixel space
@@ -664,9 +681,9 @@ class TestWaypointGraphGenerator(unittest.TestCase):
         self.assertIsNotNone(self.generator._node_map)
         self.assertEqual(self.generator._node_map.shape, test_map.shape)
 
-        # Test that all free areas have valid node assignments
-        free_pixels = test_map > 127
-        node_map_free = self.generator._node_map[free_pixels]
+        # Test that all inflated-free areas have valid node assignments
+        valid_free_pixels = (test_map > 127) & (self.generator._inflated_map == 0)
+        node_map_free = self.generator._node_map[valid_free_pixels]
 
         # All free pixels should either have a valid node ID (>= 0) or be marked as -1 (no node)
         self.assertTrue(np.all(node_map_free >= -1), "All free pixels should have valid node map values")
