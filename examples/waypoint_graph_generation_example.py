@@ -24,7 +24,7 @@ from swagger import Point, WaypointGraphGenerator, WaypointGraphGeneratorConfig
 def main():
     # Prepare the required data
     occupancy_grid = cv2.imread(
-        Path(__file__).parent.parent / "data" / "carter_warehouse_navigation.png", cv2.IMREAD_GRAYSCALE
+        Path(__file__).parent.parent / "maps" / "carter_warehouse_navigation.png", cv2.IMREAD_GRAYSCALE
     )
     occupancy_threshold = 127
     safety_distance = 0.3

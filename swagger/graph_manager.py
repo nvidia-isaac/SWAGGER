@@ -21,9 +21,12 @@ import networkx as nx
 import numpy as np
 from numpydantic import NDArray, Shape
 
-from swagger import WaypointGraphGenerator, WaypointGraphGeneratorConfig
 from swagger.logger import Logger
 from swagger.models import Point
+from swagger.waypoint_graph_generator import (
+    WaypointGraphGenerator,
+    WaypointGraphGeneratorConfig,
+)
 
 
 class GraphManager:

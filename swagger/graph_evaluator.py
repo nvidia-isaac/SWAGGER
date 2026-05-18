@@ -319,16 +319,14 @@ class WaypointGraphEvaluator:
 
     def _check_all_edges_collision(self) -> bool:
         """Check if any edge collides with obstacles using image processing."""
-        # Create a black image of the same size as the occupancy map
-        edge_image = self._inflated_map
+        edge_image = np.zeros_like(self._inflated_map, dtype=np.uint8)
 
-        # Draw all edges on the inflated map image as 0
         for n1, n2 in self._graph.edges():
             pixel1 = self._graph.nodes[n1]["pixel"]
             pixel2 = self._graph.nodes[n2]["pixel"]
-            cv2.line(edge_image, pixel1[::-1], pixel2[::-1], color=0, thickness=1)  # Note: OpenCV uses (x, y) format
-        # Check if any new white pixels appear in the combined image
-        return np.all(edge_image == self._inflated_map).item()
+            cv2.line(edge_image, pixel1[::-1], pixel2[::-1], color=1, thickness=1)  # OpenCV uses (x, y) format
+
+        return not np.any((edge_image > 0) & (self._inflated_map > 0)).item()
 
     def _calculate_path_smoothness(self, path: list[tuple[int, int]]) -> float:
         """Calculate path smoothness using angles between consecutive edges."""

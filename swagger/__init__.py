@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .graph_manager import GraphManager  # noqa
 from .models import Point  # noqa
 from .waypoint_graph_generator import (  # noqa
     WaypointGraphGenerator,

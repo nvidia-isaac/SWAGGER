@@ -161,6 +161,13 @@ pre-commit install
 pre-commit run --all-files  # Run manually
 ```
 
+### Updating Dependencies
+The `poetry.lock` file is generated with Poetry 1.8.5 — newer Poetry versions silently rewrite the lock format, which produces noisy diffs. Regenerate the lockfile with:
+```bash
+pip install "poetry==1.8.5"
+poetry lock --no-update
+```
+
 ### Contributing
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
 

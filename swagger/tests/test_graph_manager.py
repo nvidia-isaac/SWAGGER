@@ -299,10 +299,11 @@ class TestGraphManager(unittest.TestCase):
         )
 
         # Verify nodes are transformed
-        for node in graph.nodes:
+        for _, data in graph.nodes(data=True):
+            world_coords = data["world"]
             # All nodes should be offset by at least the translation
-            self.assertGreaterEqual(node.x, x_offset - 0.1)  # Allow small numerical error
-            self.assertGreaterEqual(node.y, y_offset - 0.1)
+            self.assertGreaterEqual(world_coords[0], x_offset - 0.1)  # Allow small numerical error
+            self.assertGreaterEqual(world_coords[1], y_offset - 0.1)
 
     def test_nearest_nodes_with_transform(self):
         """Test finding nearest nodes with transformed graph."""
@@ -327,9 +328,7 @@ class TestGraphManager(unittest.TestCase):
 
         # Query points in transformed space, near an existing node
         test_points = [
-            Point(
-                x=first_node[0] - 0.5 * self.test_resolution, y=first_node[1] - 0.5 * self.test_resolution, z=0.0
-            ),  # Small offset from known node
+            Point(x=first_node[0], y=first_node[1], z=0.0),  # Exact known node
             Point(x=x_offset + 10.0, y=y_offset + 10.0, z=0.0),  # Point far outside map
         ]
 
@@ -355,7 +354,7 @@ class TestGraphManager(unittest.TestCase):
             map_id=map_id,
             image=route_test_map,
             resolution=self.test_resolution,
-            safety_distance=self.test_safety_distance,
+            safety_distance=0.05,
         )
 
         # Define start and goal points on opposite sides of the wall

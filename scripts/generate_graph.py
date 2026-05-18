@@ -192,7 +192,13 @@ def main():
         # Generate waypoint graph
         with track_performance(perf_evaluator, "build_graph"):
             graph = generator.build_graph_from_grid_map(
-                image=occupancy_grid, resolution=resolution, safety_distance=safety_distance
+                image=occupancy_grid,
+                resolution=resolution,
+                safety_distance=safety_distance,
+                occupancy_threshold=args.occupancy_threshold,
+                x_offset=args.x_offset,
+                y_offset=args.y_offset,
+                rotation=args.rotation,
             )
 
         # Save graph to file

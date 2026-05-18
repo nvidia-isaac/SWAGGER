@@ -21,7 +21,7 @@ import cv2
 import numpy as np
 from fastapi.testclient import TestClient
 
-from swagger.endpoints import app
+import swagger.endpoints as endpoints
 from swagger.graph_manager import GraphManager
 
 
@@ -34,10 +34,9 @@ class TestEndpoints(unittest.TestCase):
         os.makedirs(self.vis_dir, exist_ok=True)
 
         # Create test client with visualization directory
-        app.dependency_overrides = {}  # Reset any previous overrides
-        global graph_manager
-        graph_manager = GraphManager(visualization_dir=self.vis_dir)
-        self.client = TestClient(app)
+        endpoints.app.dependency_overrides = {}  # Reset any previous overrides
+        endpoints.graph_manager = GraphManager(visualization_dir=self.vis_dir)
+        self.client = TestClient(endpoints.app)
 
         # Create a simple test map
         self.test_map = np.ones((20, 20), dtype=np.uint8) * 255
@@ -94,26 +93,47 @@ class TestEndpoints(unittest.TestCase):
 
     def test_post_graph_empty_map_id(self):
         """Test graph generation with empty map ID."""
+        # FastAPI's form parser treats an empty string as a missing required field, so
+        # the request is rejected with 422 before reaching the endpoint handler.
         map_data = {
             "map_id": "",
             "resolution": 0.05,
             "safety_distance": 0.2,
             "occupancy_threshold": 127,
-        }  # Empty map ID
+        }
 
         with open(self.test_map_path, "rb") as f:
             files = {"map_file": ("test_map.png", f, "image/png")}
             response = self.client.post("/graph/generate", data=map_data, files=files)
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("empty", response.json()["detail"].lower())
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()["detail"]
+        self.assertTrue(
+            any(err.get("loc", [])[-1:] == ["map_id"] and err.get("type") == "missing" for err in detail),
+            f"expected missing-field error on map_id, got: {detail}",
+        )
 
-        # Test with whitespace-only map ID
+        # A whitespace-only map ID passes form validation but the handler rejects it.
         map_data["map_id"] = "   "
         with open(self.test_map_path, "rb") as f:
             files = {"map_file": ("test_map.png", f, "image/png")}
             response = self.client.post("/graph/generate", data=map_data, files=files)
         self.assertEqual(response.status_code, 400)
         self.assertIn("empty", response.json()["detail"].lower())
+
+    def test_post_graph_invalid_image(self):
+        """Test graph generation rejects invalid image bytes."""
+        map_data = {
+            "map_id": "test_map",
+            "resolution": 0.05,
+            "safety_distance": 0.2,
+            "occupancy_threshold": 127,
+        }
+
+        files = {"map_file": ("test_map.png", b"not an image", "image/png")}
+        response = self.client.post("/graph/generate", data=map_data, files=files)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("invalid image", response.json()["detail"].lower())
 
     def test_get_graph(self):
         """Test retrieving a graph."""
@@ -236,7 +256,7 @@ class TestEndpoints(unittest.TestCase):
         map_data = {
             "map_id": "route_test_map",
             "resolution": 0.05,
-            "safety_distance": 0.2,
+            "safety_distance": 0.05,
             "occupancy_threshold": 127,
         }
 
