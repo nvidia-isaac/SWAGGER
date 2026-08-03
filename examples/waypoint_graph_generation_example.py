@@ -16,16 +16,13 @@
 import os
 from pathlib import Path
 
-import cv2
-
 from swagger import Point, WaypointGraphGenerator, WaypointGraphGeneratorConfig
+from swagger.image_utils import read_grayscale
 
 
 def main():
     # Prepare the required data
-    occupancy_grid = cv2.imread(
-        Path(__file__).parent.parent / "maps" / "carter_warehouse_navigation.png", cv2.IMREAD_GRAYSCALE
-    )
+    occupancy_grid = read_grayscale(Path(__file__).parent.parent / "maps" / "carter_warehouse_navigation.png")
     occupancy_threshold = 127
     safety_distance = 0.3
     resolution = 0.05

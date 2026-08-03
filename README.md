@@ -1,7 +1,7 @@
 # SWAGGER: Sparse WAypoint Graph Generation for Efficient Routing
 
-[![Python](https://img.shields.io/badge/python-3.10-blue.svg)](https://docs.python.org/3/whatsnew/3.10.html)
-[![Linux platform](https://img.shields.io/badge/ubuntu-22.04-red)](https://releases.ubuntu.com/22.04/)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://docs.python.org/3/whatsnew/3.12.html)
+[![Linux platform](https://img.shields.io/badge/ubuntu-24.04-red)](https://releases.ubuntu.com/24.04/)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
 
 A Python package that generates sparse waypoint graphs from occupancy grid maps for route planning.
@@ -32,7 +32,7 @@ See [algorithm overview](docs/algorithm.md) for an introduction of the method.
 
 
 ## System Requirements
-* Python 3.10 or newer
+* Python 3.12 or newer
 * [CUDA 12.5](https://developer.nvidia.com/cuda-12-5-0-download-archive) or newer (including NVIDIA CUDA toolkit)
 
 ## Installation
@@ -45,18 +45,13 @@ See [algorithm overview](docs/algorithm.md) for an introduction of the method.
     git lfs pull
     ```
 
-2. Install required packages.
-```bash
-sudo apt update && sudo apt install -y libgl1-mesa-glx libglib2.0-0
-```
-
-3. Start a virtual environment.
+2. Start a virtual environment.
 ```bash
 python -m venv swagger-venv
 source swagger-venv/bin/activate
 ```
 
-4. Install the SWAGGER library.
+3. Install the SWAGGER library.
 ```bash
 pip install -e .
 ```

@@ -17,10 +17,10 @@
 
 import os
 
-import cv2
 import numpy as np
 
 from swagger import GraphManager, WaypointGraphGeneratorConfig
+from swagger.image_utils import write_image
 from swagger.models import Point
 
 
@@ -122,7 +122,7 @@ def save_maps(vis_dir, maps_info):
         maps_info: List of (map_id, map_image) tuples
     """
     for map_id, map_image in maps_info:
-        cv2.imwrite(os.path.join(vis_dir, f"{map_id}_map.png"), map_image)
+        write_image(os.path.join(vis_dir, f"{map_id}_map.png"), map_image)
     print("Saved map images to visualization directory")
 
 

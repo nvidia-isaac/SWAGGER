@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Build stage
-FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS builder
+FROM nvidia/cuda:12.9.2-devel-ubuntu24.04 AS builder
 
 # Install build dependencies and create venv in one layer
 RUN apt-get update && \
@@ -41,7 +41,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     find /opt/venv -name __pycache__ -type d -exec rm -rf {} +
 
 # Create a stage for extracting only the essential CUDA headers
-FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS cuda-minimal
+FROM nvidia/cuda:12.9.2-devel-ubuntu24.04 AS cuda-minimal
 RUN mkdir -p /cuda-minimal/include && \
     cp -r /usr/local/cuda/include/* /cuda-minimal/include/ && \
     # Keep only essential CUDA dev libraries
@@ -50,16 +50,17 @@ RUN mkdir -p /cuda-minimal/include && \
     cp /usr/local/cuda/lib64/libnvrtc* /cuda-minimal/lib64/
 
 # Final stage - using runtime image
-FROM nvidia/cuda:12.9.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.9.2-runtime-ubuntu24.04
 
-# Install regular Python and other runtime dependencies
+# Install regular Python and other runtime dependencies.
+# Upgrade libssl to the latest patched build to clear base-image OpenSSL CVEs
+# (CVE-2026-45447: PKCS#7/S-MIME use-after-free). Ubuntu 24.04 ships libssl as
+# the libssl3t64 package.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3 \
-        python3-distutils \
-        curl \
-        libgl1-mesa-glx \
-        libglib2.0-0 && \
+        curl && \
+    apt-get install -y --no-install-recommends --only-upgrade libssl3t64 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -73,8 +74,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 ENV PYTHONPATH="/app:${PYTHONPATH}"
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser
+# Create non-root user. Ubuntu 24.04 base images ship a default "ubuntu" user
+# at UID 1000, so remove it first to free the UID for appuser.
+RUN userdel -r ubuntu 2>/dev/null || true && \
+    useradd -m -u 1000 appuser
 
 # Set working directory
 WORKDIR /app

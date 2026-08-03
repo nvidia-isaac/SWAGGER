@@ -19,11 +19,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import cv2
 import networkx as nx
 import numpy as np
 
 from swagger import WaypointGraphGenerator
+from swagger.image_utils import read_rgb
 from swagger.models import Point
 
 
@@ -290,7 +290,7 @@ class TestWaypointGraphGenerator(unittest.TestCase):
         )
 
         # Load and check visualization
-        vis_img = cv2.imread(vis_path)
+        vis_img = read_rgb(vis_path)
         self.assertIsNotNone(vis_img)
 
         # Check that visualization uses the same threshold

@@ -17,12 +17,12 @@ import os
 import tempfile
 import unittest
 
-import cv2
 import numpy as np
 from fastapi.testclient import TestClient
 
 import swagger.endpoints as endpoints
 from swagger.graph_manager import GraphManager
+from swagger.image_utils import write_image
 
 
 class TestEndpoints(unittest.TestCase):
@@ -44,7 +44,7 @@ class TestEndpoints(unittest.TestCase):
 
         # Save test map as PNG
         self.test_map_path = os.path.join(self.test_dir, "test_map.png")
-        cv2.imwrite(self.test_map_path, self.test_map)
+        write_image(self.test_map_path, self.test_map)
 
     def tearDown(self):
         """Clean up test fixtures after each test method."""
@@ -250,7 +250,7 @@ class TestEndpoints(unittest.TestCase):
 
         # Save test map
         route_map_path = os.path.join(self.test_dir, "route_map.png")
-        cv2.imwrite(route_map_path, route_test_map)
+        write_image(route_map_path, route_test_map)
 
         # Create graph
         map_data = {
@@ -314,7 +314,7 @@ class TestEndpoints(unittest.TestCase):
 
         # Save test map
         blocked_map_path = os.path.join(self.test_dir, "blocked_map.png")
-        cv2.imwrite(blocked_map_path, blocked_map)
+        write_image(blocked_map_path, blocked_map)
 
         # Create graph
         map_data = {
@@ -354,7 +354,7 @@ class TestEndpoints(unittest.TestCase):
 
         # Save test map
         threshold_map_path = os.path.join(self.test_dir, "threshold_map.png")
-        cv2.imwrite(threshold_map_path, test_map)
+        write_image(threshold_map_path, test_map)
 
         # Test with high threshold (more obstacles)
         map_data_high = {
