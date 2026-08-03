@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import cv2
 import networkx as nx
 import numpy as np
+from scipy.ndimage import distance_transform_edt
+from skimage.measure import label as label_connected_components
 
+from swagger.image_utils import draw_line
 from swagger.logger import Logger
 
 
@@ -49,9 +51,9 @@ class WaypointGraphEvaluator:
         self._safety_distance = safety_distance
         self._occupancy_threshold = occupancy_threshold
         # Precompute the distance transform of the occupancy map
-        self._distance_map = cv2.distanceTransform(
-            (self._occupancy_map > self._occupancy_threshold).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE
-        )
+        self._distance_map = distance_transform_edt(
+            (self._occupancy_map > self._occupancy_threshold).astype(np.uint8)
+        ).astype(np.float32)
         self._inflated_map = (self._distance_map < self._safety_distance / self._resolution).astype(np.uint8)
 
     def _validate_graph(self, graph: nx.Graph, occupancy_map: np.ndarray) -> bool:
@@ -110,8 +112,10 @@ class WaypointGraphEvaluator:
                 "coverage_efficiency": 0.0,
             }
 
-        # Segment free space into connected regions
-        num_labels, labels, _, _ = cv2.connectedComponentsWithStats(free_space_mask, connectivity=8)
+        # Segment free space into connected regions. connectivity=2 is 8-connectivity
+        # in 2-D; add one so num_labels counts the background label as OpenCV did.
+        labels, num_regions = label_connected_components(free_space_mask, connectivity=2, return_num=True)
+        num_labels = num_regions + 1
 
         # Create a binary image with only nodes marked
         node_image = np.zeros_like(self._occupancy_map, dtype=np.uint8)
@@ -121,7 +125,7 @@ class WaypointGraphEvaluator:
                 node_image[y, x] = 255
 
         # Compute distance transform from nodes
-        dist_transform = cv2.distanceTransform(255 - node_image, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+        dist_transform = distance_transform_edt(255 - node_image).astype(np.float32)
 
         # Initialize metrics
         total_free_pixels = 0
@@ -324,7 +328,7 @@ class WaypointGraphEvaluator:
         for n1, n2 in self._graph.edges():
             pixel1 = self._graph.nodes[n1]["pixel"]
             pixel2 = self._graph.nodes[n2]["pixel"]
-            cv2.line(edge_image, pixel1[::-1], pixel2[::-1], color=1, thickness=1)  # OpenCV uses (x, y) format
+            draw_line(edge_image, pixel1, pixel2, color=1)
 
         return not np.any((edge_image > 0) & (self._inflated_map > 0)).item()
 

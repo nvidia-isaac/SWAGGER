@@ -17,11 +17,11 @@ import json
 import os
 from dataclasses import dataclass
 
-import cv2
 import networkx as nx
 import tyro
 
 from swagger.graph_evaluator import WaypointGraphEvaluator
+from swagger.image_utils import read_grayscale
 
 
 @dataclass
@@ -50,7 +50,9 @@ def main():
     args = tyro.cli(Args)
     nx_graph = nx.read_gml(args.graph_path)
 
-    occupancy_map = cv2.imread(args.map_path, cv2.IMREAD_GRAYSCALE)
+    occupancy_map = read_grayscale(args.map_path)
+    if occupancy_map is None:
+        raise RuntimeError(f"Failed to read map file: {args.map_path}")
     evaluator = WaypointGraphEvaluator(
         graph=nx_graph,
         occupancy_map=occupancy_map,

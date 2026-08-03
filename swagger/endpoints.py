@@ -19,7 +19,6 @@ import mimetypes
 import os
 from typing import List, Optional
 
-import cv2
 import fastapi
 import fastapi_versioning
 import numpy as np
@@ -27,6 +26,7 @@ import requests
 
 import swagger.models as models
 from swagger.graph_manager import GraphManager
+from swagger.image_utils import ImageDecodeError, decode_grayscale
 from swagger.utils import networkx_to_csr_graph
 
 VERSION = 1
@@ -112,21 +112,12 @@ def _decode_image(contents: bytes, occupancy_threshold: int = None) -> np.ndarra
             status_code=http.HTTPStatus.BAD_REQUEST, detail="Occupancy threshold is not provided for occupancy map."
         )
 
-    image_bytes = np.frombuffer(contents, dtype="uint8")
-    if image_bytes.size == 0:
+    if not contents:
         raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Empty image.")
-    image = cv2.imdecode(image_bytes, cv2.IMREAD_UNCHANGED)
-    if image is None:
-        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Invalid image.")
-    if image.dtype != np.uint8:
-        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Map image must be 8-bit.")
-    if len(image.shape) == 3 and image.shape[2] == 4:
-        return cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
-    if len(image.shape) == 3:
-        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if len(image.shape) != 2:
-        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Map must be a grayscale image.")
-    return image
+    try:
+        return decode_grayscale(contents)
+    except ImageDecodeError as error:
+        raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail=str(error)) from error
 
 
 def _validate_map_id(map_id: str) -> str:

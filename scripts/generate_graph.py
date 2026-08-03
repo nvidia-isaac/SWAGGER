@@ -19,13 +19,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import cv2
 import networkx as nx
 import numpy as np
 import tyro
 
 from swagger import WaypointGraphGenerator, WaypointGraphGeneratorConfig
 from swagger.graph_evaluator import WaypointGraphEvaluator
+from swagger.image_utils import read_grayscale
 from swagger.logger import Logger
 from swagger.performance_evaluator import PerformanceEvaluator
 
@@ -178,7 +178,7 @@ def main():
             raise FileNotFoundError(f"Could not load map file: {map_path}")
 
         with track_performance(perf_evaluator, "load_map"):
-            occupancy_grid = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
+            occupancy_grid = read_grayscale(map_path)
             if occupancy_grid is None:
                 raise RuntimeError("Failed to read image file")
             logger.info(f"Loaded map with shape: {occupancy_grid.shape}")

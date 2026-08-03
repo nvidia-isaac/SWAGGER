@@ -21,22 +21,34 @@ from math import ceil
 from typing import Optional
 
 import cupy as cp
-import cv2
 import networkx as nx
 import numba
 import numpy as np
 import skan
 from cucim.skimage.morphology import thin
 from rtree import index
+from scipy.ndimage import distance_transform_edt, maximum_filter
 from scipy.spatial import Delaunay, cKDTree
+from skimage.measure import approximate_polygon, find_contours
 
+from swagger.image_utils import draw_disk, draw_line, gray_to_rgb, write_image
 from swagger.logger import Logger
 from swagger.models import Point
 from swagger.utils import pixel_to_world, world_to_pixel
 
+# Douglas-Peucker tolerance, in pixels, for reducing a marching-squares obstacle
+# outline to the dominant vertices that get sampled as nodes.
+_CONTOUR_TOLERANCE = 0.6
+
+# Border added to the occupancy grid in _distance_transform, so nodes are never
+# created on the map edge. _dist_transform keeps it; _inflated_map does not.
+_DISTANCE_TRANSFORM_PAD = 1
+
 
 @dataclass
 class Color:
+    """An RGB color, used only to render the graph visualization."""
+
     r: int  # Red value
     g: int  # Green value
     b: int  # Blue value
@@ -69,8 +81,8 @@ class WaypointGraphGeneratorConfig:
     min_subgraph_length: float = 0.25  # Minimum total edge length to keep
 
     # Colors for visualization
-    edge_color: Color = field(default_factory=lambda: Color(r=0, g=0, b=255))
-    node_color: Color = field(default_factory=lambda: Color(r=255, g=0, b=0))
+    edge_color: Color = field(default_factory=lambda: Color(r=255, g=0, b=0))
+    node_color: Color = field(default_factory=lambda: Color(r=0, g=0, b=255))
 
     # Function flags
     use_skeleton_graph: bool = True
@@ -296,13 +308,15 @@ class WaypointGraphGenerator:
     def _distance_transform(self, free_map: np.ndarray):
         """Inflate obstacles in the occupancy grid using a distance transform."""
         # Pad the binary map by 1 pixel on all sides to avoid nodes being created on the edges of the map
-        free_map = np.pad(free_map, ((1, 1), (1, 1)), mode="constant", constant_values=0)
-        # Compute the distance transform
-        self._dist_transform = cv2.distanceTransform(free_map, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+        pad = _DISTANCE_TRANSFORM_PAD
+        free_map = np.pad(free_map, ((pad, pad), (pad, pad)), mode="constant", constant_values=0)
+        # distance_transform_edt measures each non-zero cell's distance to the nearest
+        # zero cell, matching DIST_L2 with DIST_MASK_PRECISE exactly.
+        self._dist_transform = distance_transform_edt(free_map).astype(np.float32)
         # Filter the distance transform by the robot's radius
         self._inflated_map = (self._dist_transform < self._safety_distance / self._resolution).astype(np.uint8)
         # Unpad the distance transform to get the original map shape
-        self._inflated_map = self._inflated_map[1:-1, 1:-1]
+        self._inflated_map = self._inflated_map[pad:-pad, pad:-pad]
 
     def _create_grid_graph(self, shape: tuple[int, int], grid_sample_distance: int) -> nx.Graph:
         """Create a grid graph for completely free maps with a margin from the borders."""
@@ -478,14 +492,9 @@ class WaypointGraphGenerator:
         # Initialize R-tree index
         idx = index.Index()
 
-        # Initialize kernel for dilation
-        kernel = np.ones((3, 3), np.uint8)
-
         while True:
             # Use distance transform to calculate distances to the nearest node
-            distance_map = cv2.distanceTransform(
-                (distance_map > 0).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE
-            )
+            distance_map = distance_transform_edt((distance_map > 0).astype(np.uint8)).astype(np.float32)
 
             # Identify large distance areas
             large_distance_areas = (distance_map > distance_threshold).astype(np.uint8)
@@ -493,8 +502,8 @@ class WaypointGraphGenerator:
             if not np.any(large_distance_areas):
                 break
 
-            # Dilate the large distance areas
-            dilated = cv2.dilate(distance_map, kernel)
+            # Grayscale-dilate with a 3x3 flat structuring element.
+            dilated = maximum_filter(distance_map, size=3, mode="nearest")
 
             # Find local maxima
             local_maxima_mask = (distance_map == dilated) & (large_distance_areas > 0)
@@ -570,11 +579,10 @@ class WaypointGraphGenerator:
 
             # Process each vertex in the contour
             for i in range(len(contour)):
-                p1 = contour[i][0]
-                p2 = contour[(i + 1) % len(contour)][0]  # Wrap around to first point
+                p1 = contour[i]
+                p2 = contour[(i + 1) % len(contour)]  # Wrap around to first point
 
-                # Convert first point to y,x format
-                row_1, col_1 = int(p1[1]), int(p1[0])
+                row_1, col_1 = int(p1[0]), int(p1[1])
                 contour_nodes.append((row_1, col_1))
                 graph.add_node((row_1, col_1), node_type="boundary")
 
@@ -584,10 +592,7 @@ class WaypointGraphGenerator:
                 num_intermediate = int(segment_length / sample_distance)
                 # Skip first and last points
                 intermediate_points = np.linspace(p1, p2, num=num_intermediate, endpoint=False).astype(int).tolist()[1:]
-                for point in intermediate_points:
-                    # Interpolate point
-                    col, row = point
-
+                for row, col in intermediate_points:
                     # Add interpolated point
                     contour_nodes.append((row, col))
                     graph.add_node((row, col), node_type="boundary")
@@ -599,12 +604,28 @@ class WaypointGraphGenerator:
         self._logger.info(f"Added {num_nodes_added} nodes along obstacle boundaries")
 
     def _find_obstacle_contours(self, boundary_inflation: float) -> list[np.ndarray]:
-        """Find contours of inflated obstacles using the distance map."""
+        """Find contours of inflated obstacles, as ``(row, col)`` vertices in map coordinates."""
         # Use the distance transform to filter obstacles
         filtered_obstacles = (self._dist_transform >= boundary_inflation).astype(np.uint8)
 
-        # Find contours
-        contours, _ = cv2.findContours(filtered_obstacles, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_KCOS)
+        # Pad by one so a region touching the array edge still yields a closed outline.
+        padded = np.pad(filtered_obstacles, 1, mode="constant", constant_values=0)
+
+        # Drop that pad plus the one _distance_transform baked into _dist_transform,
+        # so vertices come back in original map coordinates rather than padded ones.
+        offset = 1.0 + _DISTANCE_TRANSFORM_PAD
+        max_row, max_col = self._original_map.shape
+
+        contours = []
+        for outline in find_contours(padded, 0.5):
+            vertices = approximate_polygon(outline, tolerance=_CONTOUR_TOLERANCE) - offset
+            # The traced ring repeats its first vertex; callers wrap around themselves.
+            if len(vertices) > 1 and np.array_equal(vertices[0], vertices[-1]):
+                vertices = vertices[:-1]
+            if len(vertices) < 2:
+                continue
+            np.clip(vertices, 0.0, [max_row - 1, max_col - 1], out=vertices)
+            contours.append(vertices)
         return contours
 
     def _is_within_bounds(self, row: int, col: int) -> bool:
@@ -720,28 +741,24 @@ class WaypointGraphGenerator:
         self._logger.info("Starting visualization...")
 
         # Graph visualization using self._original_map
-        map_vis = cv2.cvtColor(self._original_map, cv2.COLOR_GRAY2BGR)
+        map_vis = gray_to_rgb(self._original_map)
+
+        edge_color = self._config.edge_color.to_tuple()
+        node_color = self._config.node_color.to_tuple()
 
         # Draw edges in red
-        lines = []
         for src, dst in self._graph.edges():
             src_pixel = self._graph.nodes[src]["pixel"]
             dst_pixel = self._graph.nodes[dst]["pixel"]
-            lines.append([[src_pixel[1], src_pixel[0]], [dst_pixel[1], dst_pixel[0]]])
-        if lines:
-            lines = np.array(lines)
-            edge_color = self._config.edge_color.to_tuple()
-            cv2.polylines(map_vis, lines, False, edge_color, 1)
+            draw_line(map_vis, src_pixel, dst_pixel, edge_color)
 
         # Draw nodes in blue
         node_radius = 2
-        node_color = self._config.node_color.to_tuple()
         for _, pixel in self._graph.nodes(data="pixel"):
-            y, x = pixel
-            cv2.circle(map_vis, (x, y), node_radius, node_color, -1)
+            draw_disk(map_vis, pixel, node_radius, node_color)
 
         output_path = os.path.join(output_dir, output_filename)
-        if not cv2.imwrite(output_path, map_vis):
+        if not write_image(output_path, map_vis):
             raise RuntimeError(f"Failed to save visualization to {output_path}")
 
         self._logger.info(f"Saved visualization to {output_path}")
