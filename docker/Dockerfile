@@ -29,6 +29,7 @@ WORKDIR /app
 
 # Copy the entire application
 COPY pyproject.toml pyproject.toml
+COPY requirements.txt requirements.txt
 COPY swagger swagger
 COPY scripts scripts
 COPY maps maps
@@ -37,7 +38,8 @@ COPY README.md README.md
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir . && \
+    pip install --no-cache-dir --require-hashes -r requirements.txt && \
+    pip install --no-cache-dir --no-deps . && \
     find /opt/venv -name __pycache__ -type d -exec rm -rf {} +
 
 # Create a stage for extracting only the essential CUDA headers
