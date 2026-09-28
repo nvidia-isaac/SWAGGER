@@ -161,7 +161,9 @@ The `poetry.lock` file is generated with Poetry 1.8.5 — newer Poetry versions 
 ```bash
 pip install "poetry==1.8.5"
 poetry lock --no-update
+poetry export --only main --format requirements.txt --output requirements.txt
 ```
+The Docker build installs this hash-locked export, so commit it whenever `poetry.lock` changes.
 
 ### Contributing
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
