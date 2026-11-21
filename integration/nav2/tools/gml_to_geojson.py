@@ -46,7 +46,7 @@ def parse_gml_file(gml_file_path: str) -> Tuple[List[Dict], List[Dict]]:
             node_data["label"] = label_match.group(1)
 
         # Extract world coordinates (x, y, z)
-        world_matches = re.findall(r"world ([\d.-]+)", node_match)
+        world_matches = re.findall(r"world ([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)", node_match)
         if len(world_matches) >= 2:
             node_data["x"] = float(world_matches[0])
             node_data["y"] = float(world_matches[1])
@@ -78,7 +78,7 @@ def parse_gml_file(gml_file_path: str) -> Tuple[List[Dict], List[Dict]]:
         if target_match:
             edge_data["target"] = int(target_match.group(1))
 
-        weight_match = re.search(r"weight ([\d.-]+)", edge_match)
+        weight_match = re.search(r"weight ([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)", edge_match)
         if weight_match:
             edge_data["weight"] = float(weight_match.group(1))
 
